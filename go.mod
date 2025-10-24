@@ -1,6 +1,8 @@
 module backend_server
 
-go 1.23
+go 1.23.0
+
+toolchain go1.24.7
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.39.0
