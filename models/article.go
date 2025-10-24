@@ -11,15 +11,16 @@ import (
 
 // Article is used by pop to map your articles database table to your go code.
 type Article struct {
-	ID         uuid.UUID `json:"id" db:"id"`
-	AdminID    uuid.UUID `json:"admin_id" db:"admin_id"`
-	CategoryID int       `json:"category_id" db:"category_id"`
-	StatusID   int       `json:"status_id" db:"status_id"`
-	Title      string    `json:"title" db:"title"`
-	Value      string    `json:"value" db:"value"`
-	
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+	ID       uuid.UUID `json:"id" db:"id"`
+	AdminID  uuid.UUID `json:"admin_id" db:"admin_id"`
+	Category string    `json:"category" db:"category"`
+	IsActive bool      `json:"is_active" db:"is_active"`
+	Title    string    `json:"title" db:"title"`
+	Value    string    `json:"value" db:"value"`
+	ImgURL   string    `json:"img_url" db:"img_url"`
+
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // String is not required by pop and may be deleted

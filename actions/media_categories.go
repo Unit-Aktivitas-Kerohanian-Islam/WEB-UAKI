@@ -1,12 +1,10 @@
 package actions
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gobuffalo/buffalo"
 	"github.com/gobuffalo/pop/v6"
-	"github.com/gobuffalo/x/responder"
 
 	"backend_server/models"
 )
@@ -31,203 +29,105 @@ type MediaCategoriesResource struct {
 // List gets all MediaCategories. This function is mapped to the path
 // GET /media_categories
 func (v MediaCategoriesResource) List(c buffalo.Context) error {
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
 	mediaCategories := &models.MediaCategories{}
-
-	// Paginate results. Params "page" and "per_page" control pagination.
-	// Default values are "page=1" and "per_page=20".
 	q := tx.PaginateFromParams(c.Params())
 
-	// Retrieve all MediaCategories from the DB
 	if err := q.All(mediaCategories); err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "failed to fetch media categories", err.Error())
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// Add the paginator to the context so it can be used in the template.
-		c.Set("pagination", q.Paginator)
-
-		c.Set("mediaCategories", mediaCategories)
-		return c.Render(http.StatusOK, r.HTML("media_categories/index.plush.html"))
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(200, r.JSON(mediaCategories))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(200, r.XML(mediaCategories))
-	}).Respond(c)
+	return Response(c, http.StatusOK, "success", map[string]interface{}{
+		"data":       mediaCategories,
+	})
 }
 
-// Show gets the data for one MediaCategory. This function is mapped to
-// the path GET /media_categories/{media_category_id}
+// Show - GET /media_categories/{media_category_id}
 func (v MediaCategoriesResource) Show(c buffalo.Context) error {
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	// Allocate an empty MediaCategory
 	mediaCategory := &models.MediaCategory{}
-
-	// To find the MediaCategory the parameter media_category_id is used.
 	if err := tx.Find(mediaCategory, c.Param("media_category_id")); err != nil {
-		return c.Error(http.StatusNotFound, err)
+		return Response(c, http.StatusNotFound, "media category not found", err.Error())
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		c.Set("mediaCategory", mediaCategory)
-
-		return c.Render(http.StatusOK, r.HTML("media_categories/show.plush.html"))
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(200, r.JSON(mediaCategory))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(200, r.XML(mediaCategory))
-	}).Respond(c)
+	return Response(c, http.StatusOK, "success", mediaCategory)
 }
 
-// Create adds a MediaCategory to the DB. This function is mapped to the
-// path POST /media_categories
+// Create - POST /media_categories
 func (v MediaCategoriesResource) Create(c buffalo.Context) error {
-	// Allocate an empty MediaCategory
-	mediaCategory := &models.MediaCategory{}
-
-	// Bind mediaCategory to the html form elements
-	if err := c.Bind(mediaCategory); err != nil {
-		return err
-	}
-
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	// Validate the data from the html form
+	mediaCategory := &models.MediaCategory{}
+	if err := c.Bind(mediaCategory); err != nil {
+		return Response(c, http.StatusBadRequest, "invalid input", err.Error())
+	}
+
 	verrs, err := tx.ValidateAndCreate(mediaCategory)
 	if err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "failed to create media category", err.Error())
 	}
 
 	if verrs.HasAny() {
-		return responder.Wants("html", func(c buffalo.Context) error {
-			// Make the errors available inside the html template
-			c.Set("errors", verrs)
-
-			// Render again the new.html template that the user can
-			// correct the input.
-			c.Set("mediaCategory", mediaCategory)
-
-			return c.Render(http.StatusUnprocessableEntity, r.HTML("media_categories/new.plush.html"))
-		}).Wants("json", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.JSON(verrs))
-		}).Wants("xml", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.XML(verrs))
-		}).Respond(c)
+		return Response(c, http.StatusUnprocessableEntity, "validation errors", verrs)
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// If there are no errors set a success message
-		c.Flash().Add("success", T.Translate(c, "mediaCategory.created.success"))
-
-		// and redirect to the show page
-		return c.Redirect(http.StatusSeeOther, "/media_categories/%v", mediaCategory.ID)
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(http.StatusCreated, r.JSON(mediaCategory))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(http.StatusCreated, r.XML(mediaCategory))
-	}).Respond(c)
+	return Response(c, http.StatusCreated, "media category created successfully", mediaCategory)
 }
 
-// Update changes a MediaCategory in the DB. This function is mapped to
-// the path PUT /media_categories/{media_category_id}
+// Update - PUT /media_categories/{media_category_id}
 func (v MediaCategoriesResource) Update(c buffalo.Context) error {
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	// Allocate an empty MediaCategory
 	mediaCategory := &models.MediaCategory{}
-
 	if err := tx.Find(mediaCategory, c.Param("media_category_id")); err != nil {
-		return c.Error(http.StatusNotFound, err)
+		return Response(c, http.StatusNotFound, "media category not found", err.Error())
 	}
 
-	// Bind MediaCategory to the html form elements
 	if err := c.Bind(mediaCategory); err != nil {
-		return err
+		return Response(c, http.StatusBadRequest, "invalid input", err.Error())
 	}
 
 	verrs, err := tx.ValidateAndUpdate(mediaCategory)
 	if err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "failed to update media category", err.Error())
 	}
 
 	if verrs.HasAny() {
-		return responder.Wants("html", func(c buffalo.Context) error {
-			// Make the errors available inside the html template
-			c.Set("errors", verrs)
-
-			// Render again the edit.html template that the user can
-			// correct the input.
-			c.Set("mediaCategory", mediaCategory)
-
-			return c.Render(http.StatusUnprocessableEntity, r.HTML("media_categories/edit.plush.html"))
-		}).Wants("json", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.JSON(verrs))
-		}).Wants("xml", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.XML(verrs))
-		}).Respond(c)
+		return Response(c, http.StatusUnprocessableEntity, "validation errors", verrs)
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// If there are no errors set a success message
-		c.Flash().Add("success", T.Translate(c, "mediaCategory.updated.success"))
-
-		// and redirect to the show page
-		return c.Redirect(http.StatusSeeOther, "/media_categories/%v", mediaCategory.ID)
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.JSON(mediaCategory))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.XML(mediaCategory))
-	}).Respond(c)
+	return Response(c, http.StatusOK, "media category updated successfully", mediaCategory)
 }
 
-// Destroy deletes a MediaCategory from the DB. This function is mapped
-// to the path DELETE /media_categories/{media_category_id}
+// Destroy - DELETE /media_categories/{media_category_id}
 func (v MediaCategoriesResource) Destroy(c buffalo.Context) error {
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	// Allocate an empty MediaCategory
 	mediaCategory := &models.MediaCategory{}
-
-	// To find the MediaCategory the parameter media_category_id is used.
 	if err := tx.Find(mediaCategory, c.Param("media_category_id")); err != nil {
-		return c.Error(http.StatusNotFound, err)
+		return Response(c, http.StatusNotFound, "media category not found", err.Error())
 	}
 
 	if err := tx.Destroy(mediaCategory); err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "failed to delete media category", err.Error())
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// If there are no errors set a flash message
-		c.Flash().Add("success", T.Translate(c, "mediaCategory.destroyed.success"))
-
-		// Redirect to the index page
-		return c.Redirect(http.StatusSeeOther, "/media_categories")
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.JSON(mediaCategory))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.XML(mediaCategory))
-	}).Respond(c)
+	return Response(c, http.StatusOK, "media category deleted successfully", nil)
 }

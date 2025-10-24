@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -62,6 +63,15 @@ func NewStorageService() *StorageService {
 	}
 }
 
+func (s *StorageService) ExtractObjectKey(urlStr, bucket string) string {
+	// Cari bagian setelah "<bucket>/"
+	parts := strings.Split(urlStr, bucket+"/")
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	return ""
+}
+
 // Upload file ke MinIO
 func (s *StorageService) Upload(ctx context.Context, key string, data []byte) (string, error) {
 	_, err := s.Client.PutObject(ctx, &s3.PutObjectInput{
@@ -80,4 +90,16 @@ func (s *StorageService) Upload(ctx context.Context, key string, data []byte) (s
 		Path:   fmt.Sprintf("%s/%s", s.Bucket, key),
 	}
 	return u.String(), nil
+}
+
+// Delete file dari MinIO berdasarkan key
+func (s *StorageService) Delete(ctx context.Context, key string) error {
+	_, err := s.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: &s.Bucket,
+		Key:    &key,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete object %s: %v", key, err)
+	}
+	return nil
 }

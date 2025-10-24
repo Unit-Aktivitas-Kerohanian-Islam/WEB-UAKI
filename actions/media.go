@@ -1,13 +1,13 @@
 package actions
 
 import (
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/gobuffalo/buffalo"
 	"github.com/gobuffalo/pop/v6"
-	"github.com/gobuffalo/x/responder"
+	"github.com/google/uuid"
 
 	"backend_server/models"
 	"backend_server/storage"
@@ -28,230 +28,147 @@ import (
 // MediaResource is the resource for the Media model
 type MediaResource struct {
 	buffalo.Resource
+	storageService *storage.StorageService
+}
+
+func NewMediaResource() MediaResource {
+	return MediaResource{
+		storageService: storage.NewStorageService(),
+	}
 }
 
 // List gets all Media. This function is mapped to the path
 // GET /media
 func (v MediaResource) List(c buffalo.Context) error {
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	media := &models.Media{}
-
-	// Paginate results. Params "page" and "per_page" control pagination.
-	// Default values are "page=1" and "per_page=20".
+	media := &[]models.Media{}
 	q := tx.PaginateFromParams(c.Params())
 
-	// Retrieve all Media from the DB
 	if err := q.All(media); err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "failed to retrieve media", err.Error())
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// Add the paginator to the context so it can be used in the template.
-		c.Set("pagination", q.Paginator)
-
-		c.Set("media", media)
-		return c.Render(http.StatusOK, r.HTML("media/index.plush.html"))
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(200, r.JSON(media))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(200, r.XML(media))
-	}).Respond(c)
+	return Response(c, http.StatusOK, "success", map[string]interface{}{
+		"media":      media,
+		"pagination": q.Paginator,
+	})
 }
 
-// Show gets the data for one Media. This function is mapped to
-// the path GET /media/{media_id}
+// Show menampilkan satu data media berdasarkan ID
 func (v MediaResource) Show(c buffalo.Context) error {
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	// Allocate an empty Media
 	media := &models.Media{}
-
-	// To find the Media the parameter media_id is used.
 	if err := tx.Find(media, c.Param("media_id")); err != nil {
-		return c.Error(http.StatusNotFound, err)
+		return Response(c, http.StatusNotFound, "media not found", err.Error())
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		c.Set("media", media)
-
-		return c.Render(http.StatusOK, r.HTML("media/show.plush.html"))
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(200, r.JSON(media))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(200, r.XML(media))
-	}).Respond(c)
+	return Response(c, http.StatusOK, "success", media)
 }
 
-// Create adds a Media to the DB. This function is mapped to the
-// path POST /media
+// Create menambah media baru
 func (v MediaResource) Create(c buffalo.Context) error {
-	// Allocate an empty Media
 	media := &models.Media{}
-
-	// Bind media to the html form elements
 	if err := c.Bind(media); err != nil {
-		return err
+		return Response(c, http.StatusBadRequest, "invalid request body", err.Error())
 	}
 
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	// Validate the data from the html form
 	verrs, err := tx.ValidateAndCreate(media)
 	if err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "failed to create media", err.Error())
 	}
-
 	if verrs.HasAny() {
-		return responder.Wants("html", func(c buffalo.Context) error {
-			// Make the errors available inside the html template
-			c.Set("errors", verrs)
-
-			// Render again the new.html template that the user can
-			// correct the input.
-			c.Set("media", media)
-
-			return c.Render(http.StatusUnprocessableEntity, r.HTML("media/new.plush.html"))
-		}).Wants("json", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.JSON(verrs))
-		}).Wants("xml", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.XML(verrs))
-		}).Respond(c)
+		return Response(c, http.StatusUnprocessableEntity, "validation failed", verrs)
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// If there are no errors set a success message
-		c.Flash().Add("success", T.Translate(c, "media.created.success"))
-
-		// and redirect to the show page
-		return c.Redirect(http.StatusSeeOther, "/media/%v", media.ID)
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(http.StatusCreated, r.JSON(media))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(http.StatusCreated, r.XML(media))
-	}).Respond(c)
-
+	return Response(c, http.StatusCreated, "media created successfully", media)
 }
 
-// Update changes a Media in the DB. This function is mapped to
-// the path PUT /media/{media_id}
+// Update mengubah data media
 func (v MediaResource) Update(c buffalo.Context) error {
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	// Allocate an empty Media
 	media := &models.Media{}
-
 	if err := tx.Find(media, c.Param("media_id")); err != nil {
-		return c.Error(http.StatusNotFound, err)
+		return Response(c, http.StatusNotFound, "media not found", err.Error())
 	}
 
-	// Bind Media to the html form elements
 	if err := c.Bind(media); err != nil {
-		return err
+		return Response(c, http.StatusBadRequest, "invalid request body", err.Error())
 	}
 
 	verrs, err := tx.ValidateAndUpdate(media)
 	if err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "failed to update media", err.Error())
 	}
-
 	if verrs.HasAny() {
-		return responder.Wants("html", func(c buffalo.Context) error {
-			// Make the errors available inside the html template
-			c.Set("errors", verrs)
-
-			// Render again the edit.html template that the user can
-			// correct the input.
-			c.Set("media", media)
-
-			return c.Render(http.StatusUnprocessableEntity, r.HTML("media/edit.plush.html"))
-		}).Wants("json", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.JSON(verrs))
-		}).Wants("xml", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.XML(verrs))
-		}).Respond(c)
+		return Response(c, http.StatusUnprocessableEntity, "validation failed", verrs)
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// If there are no errors set a success message
-		c.Flash().Add("success", T.Translate(c, "media.updated.success"))
-
-		// and redirect to the show page
-		return c.Redirect(http.StatusSeeOther, "/media/%v", media.ID)
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.JSON(media))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.XML(media))
-	}).Respond(c)
+	return Response(c, http.StatusOK, "media updated successfully", media)
 }
 
-// Destroy deletes a Media from the DB. This function is mapped
-// to the path DELETE /media/{media_id}
+// Destroy menghapus media
 func (v MediaResource) Destroy(c buffalo.Context) error {
-	// Get the DB connection from the context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
 	}
 
-	// Allocate an empty Media
 	media := &models.Media{}
-
-	// To find the Media the parameter media_id is used.
 	if err := tx.Find(media, c.Param("media_id")); err != nil {
-		return c.Error(http.StatusNotFound, err)
+		return Response(c, http.StatusNotFound, "media not found", err.Error())
+	}
+
+	if media.Img_Url != "" {
+		key := v.storageService.ExtractObjectKey(media.Img_Url, v.storageService.Bucket)
+
+		if err := v.storageService.Delete(c.Request().Context(), key); err != nil {
+			log.Printf("⚠️ gagal hapus file di MinIO: %v", err)
+			// Tidak langsung return error — file bisa saja sudah hilang, tapi record tetap dihapus
+		}
 	}
 
 	if err := tx.Destroy(media); err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "failed to delete media", err.Error())
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// If there are no errors set a flash message
-		c.Flash().Add("success", T.Translate(c, "media.destroyed.success"))
-
-		// Redirect to the index page
-		return c.Redirect(http.StatusSeeOther, "/media")
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.JSON(media))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.XML(media))
-	}).Respond(c)
+	return Response(c, http.StatusOK, "media deleted successfully", nil)
 }
 
+
+// UploadImage mengunggah gambar ke storage
 func (v MediaResource) UploadImage(c buffalo.Context) error {
-	file, err := c.File("image") // ambil dari form
+	file, err := c.File("image")
 	if err != nil {
-		return c.Error(400, err)
+		return Response(c, http.StatusBadRequest, "failed to read image file", err.Error())
 	}
 	defer file.Close()
 
 	buf, _ := io.ReadAll(file)
 
-	storage := storage.NewStorageService()
-	url, err := storage.Upload(c.Request().Context(), "images/"+file.Filename, buf)
+	
+	url, err := v.storageService.Upload(c.Request().Context(), "media/"+ uuid.New().String() + file.Filename, buf)
 	if err != nil {
-		return c.Error(500, err)
+		return Response(c, http.StatusInternalServerError, "failed to upload image", err.Error())
 	}
 
-	return c.Render(200, r.JSON(map[string]string{
-		"message": "upload success",
-		"url":     url,
-	}))
+	return Response(c, http.StatusOK, "upload success", map[string]string{
+		"url": url,
+	})
 }

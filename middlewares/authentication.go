@@ -2,10 +2,11 @@ package middlewares
 
 import (
 	"backend_server/jwt"
-	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/gobuffalo/buffalo"
+	"github.com/gobuffalo/buffalo/render"
 )
 
 func AuthMiddleware(jwtService jwt.Interface) buffalo.MiddlewareFunc {
@@ -13,20 +14,32 @@ func AuthMiddleware(jwtService jwt.Interface) buffalo.MiddlewareFunc {
 		return func(c buffalo.Context) error {
 			authHeader := c.Request().Header.Get("Authorization")
 			if authHeader == "" {
-				return c.Error(401, errors.New("missing Authorization header"))
+				return c.Render(http.StatusUnauthorized, render.JSON(map[string]interface{}{
+					"success": false,
+					"message": "Missing Authorization header",
+				}))
 			}
 
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 			if tokenString == authHeader {
-				return c.Error(400, errors.New("invalid Authorization format, use 'Bearer <token>'"))
+				return c.Render(http.StatusBadRequest, render.JSON(map[string]interface{}{
+					"success": false,
+					"message": "Invalid Authorization format, use 'Bearer <token>'",
+				}))
 			}
 
 			adminId, err := jwtService.ValidateToken(tokenString)
 			if err != nil {
-				return c.Error(401, errors.New("invalid or expired token"))
+				return c.Render(http.StatusUnauthorized, render.JSON(map[string]interface{}{
+					"success": false,
+					"message": "Invalid or expired token",
+				}))
 			}
 
+			// Simpan admin ID ke context untuk digunakan handler berikutnya
 			c.Set("admin_id", adminId.String())
+
+			// lanjutkan ke handler berikutnya
 			return next(c)
 		}
 	}

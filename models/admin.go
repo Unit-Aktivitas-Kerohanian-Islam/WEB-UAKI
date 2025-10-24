@@ -11,10 +11,12 @@ import (
 
 // Admin is used by pop to map your admins database table to your go code.
 type Admin struct {
-	ID       uuid.UUID `json:"id" db:"id"`
-	RoleID   int64     `json:"role_id" db:"role_id"`
-	Email    string    `json:"email" db:"email"`
-	Password string    `json:"password" db:"password"`
+	ID           uuid.UUID `json:"id" db:"id"`
+	Email        string    `json:"email" db:"email"`
+	Password     string    `json:"password" db:"password"`
+	IsSuperAdmin bool      `json:"is_super_admin" db:"is_super_admin"`
+	IsActive     bool      `json:"is_active" db:"is_active"`
+	LastLogin    time.Time `json:"last_login" db:"last_login"`
 
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`

@@ -2,7 +2,6 @@ package actions
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/gobuffalo/buffalo"
@@ -33,7 +32,7 @@ type AdminsResource struct {
 // List gets all Admins. This function is mapped to the path
 // GET /admins
 func (v AdminsResource) List(c buffalo.Context) error {
-	// Get the DB connection from the context
+	// Ambil koneksi database dari context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
 		return fmt.Errorf("no transaction found")
@@ -41,27 +40,25 @@ func (v AdminsResource) List(c buffalo.Context) error {
 
 	admins := &models.Admins{}
 
-	// Paginate results. Params "page" and "per_page" control pagination.
-	// Default values are "page=1" and "per_page=20".
+	// Pagination
 	q := tx.PaginateFromParams(c.Params())
 
-	// Retrieve all Admins from the DB
+	// Ambil semua data Admins dari database
 	if err := q.All(admins); err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, err.Error(), nil)
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// Add the paginator to the context so it can be used in the template.
-		c.Set("pagination", q.Paginator)
+	// Jika datanya kosong, beri pesan berbeda
+	if len(*admins) == 0 {
+		return Response(c, http.StatusOK, "No admins found", []interface{}{})
+	}
 
-		c.Set("admins", admins)
-		return c.Render(http.StatusOK, r.HTML("admins/index.plush.html"))
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(200, r.JSON(admins))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(200, r.XML(admins))
-	}).Respond(c)
+	// Kembalikan response JSON menggunakan fungsi Response
+	return Response(c, http.StatusOK, "Admins retrieved successfully", map[string]interface{}{
+		"admins":     admins,
+	})
 }
+
 
 // Show gets the data for one Admin. This function is mapped to
 // the path GET /admins/{admin_id}
@@ -94,119 +91,85 @@ func (v AdminsResource) Show(c buffalo.Context) error {
 // Create adds a Admin to the DB. This function is mapped to the
 // path POST /admins
 func (v AdminsResource) Create(c buffalo.Context) error {
-	// Allocate an empty Admin
+	// Buat struct kosong untuk Admin
 	admin := &models.Admin{}
 
-	// Bind admin to the html form elements
+	// Bind data dari request body ke struct
 	if err := c.Bind(admin); err != nil {
-		return err
+		return Response(c, http.StatusBadRequest, "Invalid request body", nil)
 	}
 
-	//make hashPassword
+	// Hash password sebelum disimpan
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(admin.Password), 10)
 	if err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "Failed to hash password", nil)
 	}
-	log.Printf("Hashed password: %s", string(hashedPassword))
 	admin.Password = string(hashedPassword)
 
-	// Get the DB connection from the context
+	// Ambil koneksi database dari context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "No database transaction found", nil)
 	}
 
-	// Validate the data from the html form
+	// Validasi dan simpan ke database
 	verrs, err := tx.ValidateAndCreate(admin)
 	if err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "Failed to create admin", nil)
 	}
 
+	// Jika validasi gagal
 	if verrs.HasAny() {
-		return responder.Wants("html", func(c buffalo.Context) error {
-			// Make the errors available inside the html template
-			c.Set("errors", verrs)
-
-			// Render again the new.html template that the user can
-			// correct the input.
-			c.Set("admin", admin)
-
-			return c.Render(http.StatusUnprocessableEntity, r.HTML("admins/new.plush.html"))
-		}).Wants("json", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.JSON(verrs))
-		}).Wants("xml", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.XML(verrs))
-		}).Respond(c)
+		return Response(c, http.StatusUnprocessableEntity, "Validation failed", verrs)
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// If there are no errors set a success message
-		c.Flash().Add("success", T.Translate(c, "admin.created.success"))
-
-		// and redirect to the show page
-		return c.Redirect(http.StatusSeeOther, "/admins/%v", admin.ID)
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(http.StatusCreated, r.JSON(admin))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(http.StatusCreated, r.XML(admin))
-	}).Respond(c)
+	// Jika berhasil dibuat
+	return Response(c, http.StatusCreated, "Admin created successfully", admin)
 }
+
 
 // Update changes a Admin in the DB. This function is mapped to
 // the path PUT /admins/{admin_id}
 func (v AdminsResource) Update(c buffalo.Context) error {
-	// Get the DB connection from the context
+	// Ambil koneksi database dari context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return fmt.Errorf("no transaction found")
+		return Response(c, http.StatusInternalServerError, "No database transaction found", nil)
 	}
 
-	// Allocate an empty Admin
+	// Cari admin berdasarkan ID
 	admin := &models.Admin{}
-
 	if err := tx.Find(admin, c.Param("admin_id")); err != nil {
-		return c.Error(http.StatusNotFound, err)
+		return Response(c, http.StatusNotFound, "Admin not found", nil)
 	}
 
-	// Bind Admin to the html form elements
+	// Bind data baru ke struct admin
 	if err := c.Bind(admin); err != nil {
-		return err
+		return Response(c, http.StatusBadRequest, "Invalid request body", nil)
 	}
 
+	// Hash password sebelum disimpan
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(admin.Password), 10)
+	if err != nil {
+		return Response(c, http.StatusInternalServerError, "Failed to hash password", nil)
+	}
+	admin.Password = string(hashedPassword)
+
+	// Jalankan validasi dan update data
 	verrs, err := tx.ValidateAndUpdate(admin)
 	if err != nil {
-		return err
+		return Response(c, http.StatusInternalServerError, "Failed to update admin", nil)
 	}
 
+	// Jika ada error validasi
 	if verrs.HasAny() {
-		return responder.Wants("html", func(c buffalo.Context) error {
-			// Make the errors available inside the html template
-			c.Set("errors", verrs)
-
-			// Render again the edit.html template that the user can
-			// correct the input.
-			c.Set("admin", admin)
-
-			return c.Render(http.StatusUnprocessableEntity, r.HTML("admins/edit.plush.html"))
-		}).Wants("json", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.JSON(verrs))
-		}).Wants("xml", func(c buffalo.Context) error {
-			return c.Render(http.StatusUnprocessableEntity, r.XML(verrs))
-		}).Respond(c)
+		return Response(c, http.StatusUnprocessableEntity, "Validation failed", verrs)
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		// If there are no errors set a success message
-		c.Flash().Add("success", T.Translate(c, "admin.updated.success"))
-
-		// and redirect to the show page
-		return c.Redirect(http.StatusSeeOther, "/admins/%v", admin.ID)
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.JSON(admin))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(http.StatusOK, r.XML(admin))
-	}).Respond(c)
+	// Jika berhasil diupdate
+	return Response(c, http.StatusOK, "Admin updated successfully", admin)
 }
+
 
 // Destroy deletes a Admin from the DB. This function is mapped
 // to the path DELETE /admins/{admin_id}
@@ -242,7 +205,6 @@ func (v AdminsResource) Destroy(c buffalo.Context) error {
 	}).Respond(c)
 }
 
-
 // LoginHandler handles login requests
 func (v AdminsResource) Login(c buffalo.Context) error {
 	// Ambil input JSON
@@ -263,25 +225,20 @@ func (v AdminsResource) Login(c buffalo.Context) error {
 	// Cari admin berdasarkan email
 	admin := &models.Admin{}
 	if err := tx.Where("email = ?", input.Email).First(admin); err != nil {
-		return c.Error(http.StatusUnauthorized, fmt.Errorf("invalid credentials"))
+		return Response(c, http.StatusInternalServerError, "Admin not found", nil)
 	}
 
 	// Cek password
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(input.Password)); err != nil {
-		return c.Error(http.StatusUnauthorized, fmt.Errorf("invalid credentials"))
+		return Response(c, http.StatusInternalServerError, "Wrong password", nil)
 	}
 
 	// TODO: generate token (JWT misalnya)
 	token, err := JWTService.CreateJWTToken(admin.ID)
 	if err != nil {
-		log.Printf("Error generating token: %v", err)
-		return c.Error(http.StatusInternalServerError, fmt.Errorf("could not generate token"))
+		return Response(c, http.StatusInternalServerError, "Error generating token", nil)
 	}
 
 	// Untuk sementara, balikin data admin
-	return c.Render(200, r.JSON(map[string]interface{}{
-		"message": "login success",
-		"admin":   admin,
-		"token":   token,
-	}))
+	return Response(c, http.StatusOK, "Login successfully", token)
 }
