@@ -13,18 +13,16 @@ WORKDIR /src/WEB_UAKI
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Install Buffalo CLI versi terbaru
-RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest
+# Install Buffalo CLI versi terbaru dan pastikan binary tersedia di /usr/local/bin
+RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest \
+    && cp $(go env GOPATH)/bin/buffalo /usr/local/bin/buffalo
 
 # Copy seluruh source code project
 COPY . .
-
-# (Opsional) Pastikan database.yml ikut di-copy
-# Kalau file-nya ada di folder config/, ganti jadi COPY config/database.yml ./config/
 COPY database.yml ./database.yml
 
-# Jalankan proses build
-RUN /go/bin/buffalo build --static -o /bin/app
+# Jalankan proses build Buffalo
+RUN /usr/local/bin/buffalo build --static -o /bin/app
 
 
 # -------------------------------
@@ -41,12 +39,15 @@ WORKDIR /app
 # Copy binary hasil build dari stage builder
 COPY --from=builder /bin/app ./
 
-# Copy file konfigurasi database dari stage builder
+# Copy Buffalo CLI dari builder agar bisa menjalankan migrasi
+COPY --from=builder /usr/local/bin/buffalo /usr/local/bin/buffalo
+
+# Copy file konfigurasi database
 COPY --from=builder /src/WEB_UAKI/database.yml ./database.yml
 
 # Set environment agar bisa diakses dari luar
 ENV ADDR=0.0.0.0
 EXPOSE 3000
 
-# Jalankan migrasi otomatis sebelum menjalankan aplikasi
-CMD ["bash", "-c", "./app & sleep 5 && ./app buffalo db migrate up || true && wait"]
+# Jalankan aplikasi Buffalo dulu, lalu migrasi setelah 5 detik
+CMD ["bash", "-c", "./app & sleep 5 && buffalo pop migrate up || true && wait"]
