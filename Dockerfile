@@ -3,51 +3,46 @@
 # -------------------------------
 FROM golang:1.23.0 AS builder
 
-# Gunakan Go proxy
 ENV GOPROXY=https://proxy.golang.org,direct
-
-# Set working directory di dalam container
 WORKDIR /src/WEB_UAKI
 
-# Copy file dependensi terlebih dahulu
+# Copy dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Install Buffalo CLI versi terbaru dan pastikan binary tersedia di /usr/local/bin
+# Install Buffalo CLI versi terbaru dan pastikan binary bisa diakses
 RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest \
     && cp $(go env GOPATH)/bin/buffalo /usr/local/bin/buffalo
 
-# Copy seluruh source code project
+# Copy source code
 COPY . .
 COPY database.yml ./database.yml
 
-# Jalankan proses build Buffalo
+# Build binary aplikasi
 RUN /usr/local/bin/buffalo build --static -o /bin/app
 
 
 # -------------------------------
 # Stage 2: Runtime
 # -------------------------------
-FROM alpine:latest
+FROM debian:bookworm-slim
 
-# Install dependensi minimal
-RUN apk add --no-cache bash ca-certificates
+# Install dependensi dasar
+RUN apt-get update && apt-get install -y bash ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Set working directory di runtime
 WORKDIR /app
 
-# Copy binary hasil build dari stage builder
+# Copy binary hasil build
 COPY --from=builder /bin/app ./
 
-# Copy Buffalo CLI dari builder agar bisa menjalankan migrasi
+# Copy Buffalo CLI agar bisa migrasi
 COPY --from=builder /usr/local/bin/buffalo /usr/local/bin/buffalo
 
-# Copy file konfigurasi database
+# Copy konfigurasi database
 COPY --from=builder /src/WEB_UAKI/database.yml ./database.yml
 
-# Set environment agar bisa diakses dari luar
 ENV ADDR=0.0.0.0
 EXPOSE 3000
 
-# Jalankan aplikasi Buffalo dulu, lalu migrasi setelah 5 detik
+# Jalankan aplikasi dulu, lalu migrasi setelah 5 detik
 CMD ["bash", "-c", "./app & sleep 5 && buffalo pop migrate up || true && wait"]
