@@ -42,14 +42,11 @@ WORKDIR /app
 COPY --from=builder /bin/app ./
 
 # Copy file konfigurasi database dari stage builder
-# Perhatikan: path-nya harus sama dengan di stage build
 COPY --from=builder /src/WEB_UAKI/database.yml ./database.yml
-# Jika database.yml kamu ada di dalam folder config/, gunakan:
-# COPY --from=builder /src/WEB_UAKI/config ./config
 
 # Set environment agar bisa diakses dari luar
 ENV ADDR=0.0.0.0
 EXPOSE 3000
 
-# Jalankan aplikasi Buffalo
-CMD ["./app"]
+# Jalankan migrasi otomatis sebelum menjalankan aplikasi
+CMD ["bash", "-c", "/app/app pop migrate up && ./app"]
