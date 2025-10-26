@@ -49,4 +49,4 @@ ENV ADDR=0.0.0.0
 EXPOSE 3000
 
 # Jalankan migrasi otomatis sebelum menjalankan aplikasi
-CMD ["bash", "-c", "/app/app pop migrate up && ./app"]
+CMD ["bash", "-c", "./app pop migrate up && ./app"]
