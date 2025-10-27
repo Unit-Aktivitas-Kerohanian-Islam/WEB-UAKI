@@ -1,9 +1,9 @@
-# =========================
-# Stage 1: Build Buffalo App
-# =========================
+# -------------------------------
+# Stage 1: Build
+# -------------------------------
 FROM golang:1.23.0 AS builder
 
-# Set Go proxy
+# Gunakan Go proxy
 ENV GOPROXY=https://proxy.golang.org,direct
 
 # Set working directory di dalam container
@@ -13,43 +13,44 @@ WORKDIR /src/WEB_UAKI
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Install Buffalo CLI dan tool migrasi Soda
-RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest
-RUN go install github.com/gobuffalo/pop/v6/soda@latest
+# Install Buffalo CLI dan Soda CLI
+RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest && \
+    go install github.com/gobuffalo/pop/v6/soda@latest
 
-# Copy seluruh source code, termasuk folder migrations
+# Copy seluruh source code project
 COPY . .
-COPY migrations ./migrations
 
-# Build aplikasi Buffalo menjadi binary
-RUN buffalo build -o /bin/app
-
-
-# =========================
-# Stage 2: Runtime Container
-# =========================
-FROM debian:bookworm-slim
-
-# Install dependensi minimal + PostgreSQL client agar pg_dump tersedia
-RUN apt-get update && apt-get install -y ca-certificates bash curl postgresql-client && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
-WORKDIR /app
-
-# Copy binary hasil build & tool soda
-COPY --from=builder /bin/app /app/app
-COPY --from=builder /go/bin/soda /usr/local/bin/soda
-
-# Copy file konfigurasi database jika ada
+# Pastikan file konfigurasi ikut disalin (opsional)
 COPY database.yml ./database.yml
 
-# Set environment
+# Jalankan proses build Buffalo
+RUN /go/bin/buffalo build --static -o /bin/app
+
+
+# -------------------------------
+# Stage 2: Runtime
+# -------------------------------
+FROM alpine:latest
+
+# Install dependensi minimal
+RUN apk add --no-cache bash ca-certificates postgresql-client
+
+# Set working directory runtime
+WORKDIR /app
+
+# Copy binary hasil build dari stage builder
+COPY --from=builder /bin/app ./
+
+# Copy CLI soda agar bisa migrasi
+COPY --from=builder /go/bin/soda /usr/local/bin/soda
+
+# Copy file konfigurasi database dan folder migrasi
+COPY --from=builder /src/WEB_UAKI/database.yml ./database.yml
+COPY --from=builder /src/WEB_UAKI/migrations ./migrations
+
+# Set environment agar bisa diakses dari luar
 ENV ADDR=0.0.0.0
-ENV GO_ENV=production
+EXPOSE 3000
 
-# Port default Buffalo
-EXPOSE 8080
-
-# Jalankan aplikasi + migrasi otomatis
-# (tunggu 5 detik agar DB siap, lalu jalankan migrasi tanpa dump schema)
-CMD ["bash", "-c", "./app & sleep 5 && soda migrate up || true && wait"]
+# Jalankan migrasi dulu, lalu jalankan aplikasi Buffalo
+CMD ["bash", "-c", "cd /app && soda migrate up && ./app"]
