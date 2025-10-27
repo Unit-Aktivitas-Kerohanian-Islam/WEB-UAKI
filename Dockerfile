@@ -1,48 +1,48 @@
-# -------------------------------
-# Stage 1: Build
-# -------------------------------
+# =========================
+# Stage 1: Build Buffalo App
+# =========================
 FROM golang:1.23.0 AS builder
 
-ENV GOPROXY=https://proxy.golang.org,direct
+# Set working directory
 WORKDIR /src/WEB_UAKI
 
-# Copy dependencies
+# Set Go proxy (optional tapi disarankan)
+ENV GOPROXY=https://proxy.golang.org,direct
+
+# Copy go.mod & go.sum, lalu download dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Install Buffalo CLI versi terbaru dan pastikan binary bisa diakses
-RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest \
-    && cp $(go env GOPATH)/bin/buffalo /usr/local/bin/buffalo
+# Install Buffalo CLI dan Pop CLI (soda)
+RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest
+RUN go install github.com/gobuffalo/pop/v6/soda@latest
 
-# Copy source code
+# Copy seluruh source code
 COPY . .
-COPY database.yml ./database.yml
 
-# Build binary aplikasi
-RUN /usr/local/bin/buffalo build --static -o /bin/app
+# Build binary Buffalo app
+RUN buffalo build -o /bin/app
 
-
-# -------------------------------
-# Stage 2: Runtime
-# -------------------------------
+# =========================
+# Stage 2: Runtime Container
+# =========================
 FROM debian:bookworm-slim
 
-# Install dependensi dasar
-RUN apt-get update && apt-get install -y bash ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install dependencies minimal
+RUN apt-get update && apt-get install -y ca-certificates bash curl && rm -rf /var/lib/apt/lists/*
 
+# Set working directory
 WORKDIR /app
 
-# Copy binary hasil build
-COPY --from=builder /bin/app ./
+# Copy hasil build dan soda dari stage builder
+COPY --from=builder /bin/app /app/app
+COPY --from=builder /go/bin/soda /usr/local/bin/soda
 
-# Copy Buffalo CLI agar bisa migrasi
-COPY --from=builder /usr/local/bin/buffalo /usr/local/bin/buffalo
+# Copy file konfigurasi database
+COPY database.yml ./database.yml
 
-# Copy konfigurasi database
-COPY --from=builder /src/WEB_UAKI/database.yml ./database.yml
+# Expose port aplikasi
+EXPOSE 8080
 
-ENV ADDR=0.0.0.0
-EXPOSE 3000
-
-# Jalankan aplikasi dulu, lalu migrasi setelah 5 detik
-CMD ["bash", "-c", "./app & sleep 5 && buffalo pop migrate up || true && wait"]
+# Jalankan aplikasi dan migrasi setelahnya
+CMD ["bash", "-c", "./app & sleep 5 && soda migrate up || true && wait"]
