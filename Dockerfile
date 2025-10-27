@@ -52,4 +52,4 @@ EXPOSE 8080
 
 # Jalankan aplikasi + migrasi otomatis
 # (tunggu 5 detik agar DB siap, lalu jalankan migrasi tanpa dump schema)
-CMD ["bash", "-c", "./app & sleep 5 && soda migrate up --no-dump-schema || true && wait"]
+CMD ["bash", "-c", "./app & sleep 5 && soda migrate up || true && wait"]
