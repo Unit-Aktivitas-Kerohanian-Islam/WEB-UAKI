@@ -1,7 +1,10 @@
 # -------------------------------
-# Stage 1: Build
+# Stage 1: Build (pakai Alpine)
 # -------------------------------
-FROM golang:1.23.0 AS builder
+FROM golang:1.23-alpine AS builder
+
+# Install tools dasar
+RUN apk add --no-cache git bash build-base
 
 # Gunakan Go proxy
 ENV GOPROXY=https://proxy.golang.org,direct
@@ -20,7 +23,7 @@ RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest && \
 # Copy seluruh source code project
 COPY . .
 
-# Pastikan file konfigurasi ikut disalin (opsional)
+# Pastikan file konfigurasi ikut disalin
 COPY database.yml ./database.yml
 
 # Jalankan proses build Buffalo
@@ -28,7 +31,7 @@ RUN /go/bin/buffalo build --static -o /bin/app
 
 
 # -------------------------------
-# Stage 2: Runtime
+# Stage 2: Runtime (masih Alpine)
 # -------------------------------
 FROM alpine:latest
 
@@ -52,5 +55,5 @@ COPY --from=builder /src/WEB_UAKI/migrations ./migrations
 ENV ADDR=0.0.0.0
 EXPOSE 3000
 
-# Jalankan migrasi dulu, lalu jalankan aplikasi Buffalo
-CMD ["bash", "-c", "cd /app && soda migrate up && ./app"]
+# Jalankan migrasi dulu, baru jalankan aplikasi Buffalo
+CMD ["bash", "-c", "cd /app && echo '📦 Running migrations...' && soda migrate up && echo '🚀 Starting Buffalo app...' && ./app"]
