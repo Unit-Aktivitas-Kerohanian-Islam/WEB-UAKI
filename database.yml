@@ -11,5 +11,5 @@ test:
 
 production:
   dialect: postgres
-  url: {{envOr "DATABASE_URL" "postgres://postgres:postgres@127.0.0.1:5432/backend_server_production?sslmode=require"}}
+  url: {{envOr "DATABASE_URL" ""}}
 
