@@ -3,6 +3,7 @@ package actions
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gobuffalo/buffalo"
 	"github.com/gobuffalo/pop/v6"
@@ -244,6 +245,12 @@ func (v AdminsResource) Login(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Error generating token", nil)
 	}
 
-	// Untuk sementara, balikin data admin
+	//update last_login
+	admin.LastLogin = time.Now()
+	if err := tx.Update(admin); err != nil {
+		return Response(c, http.StatusInternalServerError, "Failed to update last login", nil)
+	}
+
+	// respon dengan token
 	return Response(c, http.StatusOK, "Login successfully", token)
 }
