@@ -88,8 +88,8 @@ func App() *buffalo.App {
 		adminRoute.Middleware.Skip(superAdminAuth, admins.Login)
 	
 
-		// adminRoute.Middleware.Skip(superAdminAuth, admins.Create)
-		// adminRoute.Middleware.Skip(auth, admins.Create)
+		adminRoute.Middleware.Skip(superAdminAuth, admins.Create)
+		adminRoute.Middleware.Skip(auth, admins.Create)
 
 		articles := NewArticleResource()
 		app.POST("/articles/image", articles.UploadImage)
