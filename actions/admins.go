@@ -228,6 +228,11 @@ func (v AdminsResource) Login(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Admin not found", nil)
 	}
 
+	// Cek is_active
+	if !admin.IsActive {
+		return Response(c, http.StatusForbidden, "Admin account is inactive", nil)
+	}
+
 	// Cek password
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(input.Password)); err != nil {
 		return Response(c, http.StatusInternalServerError, "Wrong password", nil)
