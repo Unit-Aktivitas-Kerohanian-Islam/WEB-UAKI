@@ -251,6 +251,11 @@ func (v AdminsResource) Login(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Failed to update last login", nil)
 	}
 
-	// respon dengan token
-	return Response(c, http.StatusOK, "Login successfully", token)
+	// Respon dengan token dan admin.ID
+	data := map[string]interface{}{
+		"admin_id": admin.ID,
+		"token":    token,
+	}
+
+	return Response(c, http.StatusOK, "Login successfully", data)
 }
