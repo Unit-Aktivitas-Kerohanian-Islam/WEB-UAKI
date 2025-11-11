@@ -100,28 +100,54 @@ func (v MediaResource) Create(c buffalo.Context) error {
 func (v MediaResource) Update(c buffalo.Context) error {
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
-		return Response(c, http.StatusInternalServerError, "no transaction found", nil)
+		return Response(c, http.StatusInternalServerError, "Database connection not found", nil)
 	}
 
+	// Ambil data media lama dari database
 	media := &models.Media{}
 	if err := tx.Find(media, c.Param("media_id")); err != nil {
-		return Response(c, http.StatusNotFound, "media not found", err.Error())
+		return Response(c, http.StatusNotFound, "Media not found", nil)
 	}
 
-	if err := c.Bind(media); err != nil {
-		return Response(c, http.StatusBadRequest, "invalid request body", err.Error())
+	oldFile := media.Img_Url // Simpan URL file lama
+
+	// Bind input baru ke struct sementara
+	var input models.Media
+	if err := c.Bind(&input); err != nil {
+		return Response(c, http.StatusBadRequest, "Invalid media data", nil)
 	}
 
+	// Cek apakah file berubah
+	if input.Img_Url != "" && input.Img_Url != oldFile {
+		// Hapus file lama dari MinIO
+		if oldFile != "" {
+			key := v.storageService.ExtractObjectKey(oldFile, v.storageService.Bucket)
+			if key != "" {
+				if err := v.storageService.Delete(c.Request().Context(), key); err != nil {
+					log.Printf("⚠️ gagal hapus file lama di MinIO: %v", err)
+					// Tidak menghentikan proses update meskipun gagal hapus file
+				}
+			}
+		}
+	}
+
+	// Update field media
+	media.Title = input.Title
+	media.Img_Url = input.Img_Url
+	media.CategoryID = input.CategoryID
+
+	// Simpan perubahan ke database
 	verrs, err := tx.ValidateAndUpdate(media)
 	if err != nil {
-		return Response(c, http.StatusInternalServerError, "failed to update media", err.Error())
+		return Response(c, http.StatusInternalServerError, "Failed to update media", err.Error())
 	}
 	if verrs.HasAny() {
-		return Response(c, http.StatusUnprocessableEntity, "validation failed", verrs)
+		return Response(c, http.StatusUnprocessableEntity, "Validation error", verrs)
 	}
 
-	return Response(c, http.StatusOK, "media updated successfully", media)
+	return Response(c, http.StatusOK, "Media updated successfully", media)
 }
+
 
 // Destroy menghapus media
 func (v MediaResource) Destroy(c buffalo.Context) error {
