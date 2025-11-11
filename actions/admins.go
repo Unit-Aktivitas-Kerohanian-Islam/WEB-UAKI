@@ -254,6 +254,8 @@ func (v AdminsResource) Login(c buffalo.Context) error {
 	// Respon dengan token dan admin.ID
 	data := map[string]interface{}{
 		"admin_id": admin.ID,
+		"is_super_admin" : admin.IsSuperAdmin,
+		"is_active" : admin.IsActive,
 		"token":    token,
 	}
 

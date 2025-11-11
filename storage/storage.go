@@ -75,9 +75,11 @@ func (s *StorageService) ExtractObjectKey(urlStr, bucket string) string {
 // Upload file ke MinIO
 func (s *StorageService) Upload(ctx context.Context, key string, data []byte) (string, error) {
 	_, err := s.Client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket: &s.Bucket,
-		Key:    &key,
-		Body:   bytes.NewReader(data),
+		Bucket:             &s.Bucket,
+		Key:                &key,
+		Body:               bytes.NewReader(data),
+		ContentType:        aws.String(detectContentType(key)),
+		ContentDisposition: aws.String("inline"),
 	})
 	if err != nil {
 		return "", err
@@ -90,6 +92,22 @@ func (s *StorageService) Upload(ctx context.Context, key string, data []byte) (s
 		Path:   fmt.Sprintf("%s/%s", s.Bucket, key),
 	}
 	return u.String(), nil
+}
+
+func detectContentType(key string) string {
+	lower := strings.ToLower(key)
+	switch {
+	case strings.HasSuffix(lower, ".jpg"), strings.HasSuffix(lower, ".jpeg"):
+		return "image/jpeg"
+	case strings.HasSuffix(lower, ".png"):
+		return "image/png"
+	case strings.HasSuffix(lower, ".gif"):
+		return "image/gif"
+	case strings.HasSuffix(lower, ".webp"):
+		return "image/webp"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 // Delete file dari MinIO berdasarkan key

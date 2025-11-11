@@ -101,14 +101,38 @@ func (v ArticlesResource) Update(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Database connection not found", nil)
 	}
 
+	// Ambil artikel lama
 	article := &models.Article{}
 	if err := tx.Find(article, c.Param("article_id")); err != nil {
 		return Response(c, http.StatusNotFound, "Article not found", nil)
 	}
 
-	if err := c.Bind(article); err != nil {
+	oldImage := article.ImgURL // simpan gambar lama
+
+	// Bind JSON ke struct
+	var input models.Article
+	if err := c.Bind(&input); err != nil {
 		return Response(c, http.StatusBadRequest, "Invalid article data", nil)
 	}
+
+	// Cek apakah ImageURL berubah
+	if input.ImgURL != "" && input.ImgURL != oldImage {
+		// Hapus gambar lama dari MinIO
+		if oldImage != "" {
+			key := v.storageService.ExtractObjectKey(oldImage, v.storageService.Bucket)
+			if key != "" {
+				if err := v.storageService.Delete(c.Request().Context(), key); err != nil {
+					log.Printf("⚠️ gagal hapus file di MinIO: %v", err)
+					// Tidak langsung return error — file bisa saja sudah hilang, tapi record tetap diupdate
+				}
+			}
+		}
+	}
+
+	// Update field lainnya
+	article.Title = input.Title
+	article.Value = input.Value
+	article.ImgURL = input.ImgURL
 
 	verrs, err := tx.ValidateAndUpdate(article)
 	if err != nil {
@@ -120,6 +144,7 @@ func (v ArticlesResource) Update(c buffalo.Context) error {
 
 	return Response(c, http.StatusOK, "Article updated successfully", article)
 }
+
 
 // Destroy (delete) an article
 func (v ArticlesResource) Destroy(c buffalo.Context) error {
