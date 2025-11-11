@@ -75,9 +75,9 @@ func (s *StorageService) ExtractObjectKey(urlStr, bucket string) string {
 // Upload file ke MinIO
 func (s *StorageService) Upload(ctx context.Context, key string, data []byte) (string, error) {
 	_, err := s.Client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:             &s.Bucket,
-		Key:                &key,
-		Body:               bytes.NewReader(data),
+		Bucket: &s.Bucket,
+		Key:    &key,
+		Body:   bytes.NewReader(data),
 		ContentType:        aws.String(detectContentType(key)),
 		ContentDisposition: aws.String("inline"),
 	})
@@ -85,14 +85,27 @@ func (s *StorageService) Upload(ctx context.Context, key string, data []byte) (s
 		return "", err
 	}
 
-	// URL file hasil upload
-	u := url.URL{
-		Scheme: "http",
-		Host:   s.Endpoint[len("http://"):], // buang prefix http://
-		Path:   fmt.Sprintf("%s/%s", s.Bucket, key),
+	// ✅ Gunakan url.Parse agar scheme/host tidak kacau
+	parsed, err := url.Parse(s.Endpoint)
+	if err != nil {
+		return "", fmt.Errorf("invalid endpoint: %v", err)
 	}
-	return u.String(), nil
+
+	// Pastikan host tidak kosong
+	if parsed.Scheme == "" {
+		parsed.Scheme = "https"
+	}
+	if parsed.Host == "" {
+		parsed.Host = parsed.Path // kadang s.Endpoint diset tanpa scheme
+		parsed.Path = ""
+	}
+
+	// ✅ Bentuk URL hasil upload
+	parsed.Path = fmt.Sprintf("%s/%s/%s", strings.Trim(parsed.Path, "/"), s.Bucket, key)
+
+	return parsed.String(), nil
 }
+
 
 func detectContentType(key string) string {
 	lower := strings.ToLower(key)
