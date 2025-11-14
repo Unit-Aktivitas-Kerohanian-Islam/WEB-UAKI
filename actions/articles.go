@@ -130,6 +130,8 @@ func (v ArticlesResource) Update(c buffalo.Context) error {
 	}
 
 	// Update field lainnya
+	article.Category = input.Category
+	article.IsActive = input.IsActive
 	article.Title = input.Title
 	article.Value = input.Value
 	article.ImgURL = input.ImgURL
