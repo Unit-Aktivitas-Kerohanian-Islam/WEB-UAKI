@@ -64,30 +64,26 @@ func (v AdminsResource) List(c buffalo.Context) error {
 // Show gets the data for one Admin. This function is mapped to
 // the path GET /admins/{admin_id}
 func (v AdminsResource) Show(c buffalo.Context) error {
-	// Get the DB connection from the context
+	// Ambil koneksi database dari context
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
 		return fmt.Errorf("no transaction found")
 	}
 
-	// Allocate an empty Admin
+	// Siapkan struct admin kosong
 	admin := &models.Admin{}
 
-	// To find the Admin the parameter admin_id is used.
+	// Cari admin berdasarkan ID
 	if err := tx.Find(admin, c.Param("admin_id")); err != nil {
-		return c.Error(http.StatusNotFound, err)
+		return Response(c, http.StatusNotFound, "Admin not found", nil)
 	}
 
-	return responder.Wants("html", func(c buffalo.Context) error {
-		c.Set("admin", admin)
-
-		return c.Render(http.StatusOK, r.HTML("admins/show.plush.html"))
-	}).Wants("json", func(c buffalo.Context) error {
-		return c.Render(200, r.JSON(admin))
-	}).Wants("xml", func(c buffalo.Context) error {
-		return c.Render(200, r.XML(admin))
-	}).Respond(c)
+	// Return response JSON yang konsisten
+	return Response(c, http.StatusOK, "Admin retrieved successfully", map[string]interface{}{
+		"admin": admin,
+	})
 }
+
 
 // Create adds a Admin to the DB. This function is mapped to the
 // path POST /admins

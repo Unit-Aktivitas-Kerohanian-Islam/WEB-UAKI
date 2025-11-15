@@ -88,8 +88,8 @@ func App() *buffalo.App {
 		adminRoute.Middleware.Skip(superAdminAuth, admins.Login)
 	
 
-		adminRoute.Middleware.Skip(superAdminAuth, admins.Create)
-		adminRoute.Middleware.Skip(auth, admins.Create)
+		// adminRoute.Middleware.Skip(superAdminAuth, admins.Create)
+		// adminRoute.Middleware.Skip(auth, admins.Create)
 
 		articles := NewArticleResource()
 		app.POST("/articles/image", auth(articles.UploadImage))
@@ -107,6 +107,7 @@ func App() *buffalo.App {
 		mediaCategoriesRoute := app.Resource("/media-categories", mediaCategories)
 		mediaCategoriesRoute.Middleware.Use(auth)
 		mediaCategoriesRoute.Middleware.Use(superAdminAuth)
+		mediaCategoriesRoute.Middleware.Skip(auth, mediaCategories.List)
 		mediaCategoriesRoute.Middleware.Skip(superAdminAuth, mediaCategories.List)
 	})
 
