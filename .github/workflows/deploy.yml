@@ -1,0 +1,127 @@
+name: 🚀 Deploy to Production VPS
+
+on:
+  push:
+    branches:
+      - dev
+
+env:
+  IMAGE_NAME: web-uaki-app
+  CONTAINER_NAME: uaki_app
+
+jobs:
+  # ============================================================
+  # JOB 1: Test (opsional, jalankan unit test dulu)
+  # ============================================================
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run go vet
+        run: go vet ./...
+
+  # ============================================================
+  # JOB 2: Build Docker Image dan Push ke Registry
+  # ============================================================
+  build:
+    name: 🐳 Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # JOB 3: Deploy ke VPS via SSH
+  # ============================================================
+  deploy:
+    name: 🖥️ Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code (untuk docker-compose.prod.yml)
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose.prod.yml ke VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.prod.yml"
+          target: "/home/${{ secrets.VPS_USER }}/WEB-UAKI"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            echo "📁 Masuk ke direktori project..."
+            cd /home/${{ secrets.VPS_USER }}/WEB-UAKI
+
+            echo "🔐 Login ke GitHub Container Registry..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            echo "⬇️  Pull image terbaru..."
+            IMAGE_TAG="ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest"
+            export IMAGE_TAG
+
+            echo "🛑 Stop container lama (jika ada)..."
+            docker compose -f docker-compose.prod.yml down --remove-orphans || true
+
+            echo "🚀 Jalankan container baru..."
+            docker compose -f docker-compose.prod.yml up -d --pull always
+
+            echo "🧹 Bersihkan image lama yang tidak terpakai..."
+            docker image prune -f
+
+            echo "✅ Deploy berhasil!"
+            docker compose -f docker-compose.prod.yml ps
