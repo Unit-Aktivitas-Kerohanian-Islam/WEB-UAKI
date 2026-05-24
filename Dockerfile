@@ -1,7 +1,7 @@
 # -------------------------------
 # Stage 1: Build (pakai Alpine)
 # -------------------------------
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install tools dasar
 RUN apk add --no-cache git bash build-base
@@ -17,8 +17,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Install Buffalo CLI dan Soda CLI
-RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest && \
-    go install github.com/gobuffalo/pop/v6/soda@latest
+RUN go install github.com/gobuffalo/cli/cmd/buffalo@v0.18.14 && \
+    go install github.com/gobuffalo/pop/v6/soda@v6.1.1
 
 # Copy seluruh source code project
 COPY . .
