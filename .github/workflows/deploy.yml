@@ -110,7 +110,7 @@ jobs:
           script: |
             set -e
             echo "📁 Masuk ke direktori project..."
-            cd /home/${{ secrets.VPS_USER }}/WEB-UAKI
+            cd /home/${{ secrets.VPS_USER }}/web-uaki
 
             echo "🔐 Login ke GitHub Container Registry..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
