@@ -6,8 +6,8 @@ on:
       - dev
 
 env:
-  IMAGE_NAME: web-uaki-app
-  CONTAINER_NAME: uaki_app
+  IMAGE_NAME: WEB-UAKI
+  CONTAINER_NAME: WEB-UAKI
 
 jobs:
   # ============================================================
