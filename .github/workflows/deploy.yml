@@ -6,8 +6,13 @@ on:
       - dev
 
 env:
-  IMAGE_NAME: WEB-UAKI
-  CONTAINER_NAME: WEB-UAKI
+  IMAGE_NAME: web-uaki
+  CONTAINER_NAME: web-uaki
+
+# Izinkan GITHUB_TOKEN untuk push ke GitHub Container Registry
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   # ============================================================
@@ -23,7 +28,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
           cache: true
 
       - name: Download dependencies
