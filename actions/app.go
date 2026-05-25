@@ -78,14 +78,14 @@ func App() *buffalo.App {
 		//routes
 		app.GET("/", HomeHandler)
 
-		// app.POST("/admin/login", Login)
-
+		// Admin login — route publik, HARUS didaftarkan terpisah dari resource
+		// agar tidak terkena middleware auth dari adminRoute
 		admins := AdminsResource{}
 		app.POST("/admins/login", admins.Login)
+
+		// Admin resource — semua route di sini WAJIB pakai auth & superAdminAuth
 		adminRoute := app.Resource("/admins", admins)
 		adminRoute.Middleware.Use(auth, superAdminAuth)
-		adminRoute.Middleware.Skip(auth, admins.Login)
-		adminRoute.Middleware.Skip(superAdminAuth, admins.Login)
 	
 
 		// adminRoute.Middleware.Skip(superAdminAuth, admins.Create)
