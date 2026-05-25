@@ -12,5 +12,10 @@ test:
 
 production:
   dialect: postgres
-  url: {{envOr "DATABASE_URL" ""}}
+  database: {{envOr "DB_DATABASE" "backend_server_development"}}
+  user: {{envOr "DB_USER" "postgres"}}
+  password: {{envOr "DB_PASSWORD" ""}}
+  host: {{envOr "DB_HOST" "db"}}
+  port: {{envOr "DB_PORT" "5432"}}
+  pool: 5
 
