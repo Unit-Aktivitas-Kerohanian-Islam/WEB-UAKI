@@ -8,3 +8,4 @@ node_modules/
 !.yarn/versions
 *.log
 bin/
+migrations/schema.sql

@@ -30,3 +30,6 @@ generated/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Buffalo migration schema dump
+migrations/schema.sql

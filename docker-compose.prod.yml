@@ -24,7 +24,7 @@ services:
   # APPLICATION: Buffalo Go App
   # ==============================================================================
   app:
-    image: ${IMAGE_TAG:-ghcr.io/Unit-Aktivitas-Kerohanian-Islam/WEB-UAKI:latest}
+    image: ${IMAGE_TAG:-ghcr.io/unit-aktivitas-kerohanian-islam/web-uaki:latest}
     container_name: WEB-UAKI
     restart: always
     ports:
