@@ -144,8 +144,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            echo "📁 Masuk ke direktori project..."
-            cd /home/${{ secrets.VPS_USER }}/WEB-UAKI
-
-            echo "🧪 Menjalankan seeding database..."
-            docker exec WEB-UAKI buffalo task db:seed
+              echo "📁 Masuk ke direktori project..."
+              cd /home/***/WEB-UAKI
+              
+              echo "🧪 Menjalankan seeding database..."
+              docker exec WEB-UAKI /app/app task db:seed
