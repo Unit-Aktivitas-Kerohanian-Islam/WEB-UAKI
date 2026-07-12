@@ -148,4 +148,4 @@ jobs:
             cd /home/${{ secrets.VPS_USER }}/WEB-UAKI
 
             echo "🧪 Menjalankan seeding database..."
-            docker exec -it WEB-UAKI buffalo task db:seed
+            docker exec WEB-UAKI buffalo task db:seed
