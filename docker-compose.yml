@@ -42,6 +42,9 @@ services:
       NOS_SECRET_KEY: ${NOS_SECRET_KEY}
       NOS_BUCKET: ${NOS_BUCKET}
       NOS_REGION: ${NOS_REGION}
+
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
