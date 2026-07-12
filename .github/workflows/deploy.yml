@@ -135,3 +135,17 @@ jobs:
 
             echo "✅ Deploy berhasil!"
             docker compose  ps
+
+      - name: Seeding Database 
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            echo "📁 Masuk ke direktori project..."
+            cd /home/${{ secrets.VPS_USER }}/WEB-UAKI
+
+            echo "🧪 Menjalankan seeding database..."
+            docker exec -it WEB-UAKI buffalo task db:seed
