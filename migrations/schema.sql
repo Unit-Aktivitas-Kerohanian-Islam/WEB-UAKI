@@ -44,6 +44,24 @@ CREATE TYPE public.article_category AS ENUM (
 
 ALTER TYPE public.article_category OWNER TO postgres;
 
+--
+-- Name: division_choice; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.division_choice AS ENUM (
+    'KP',
+    'MENTORING',
+    'SYIAR',
+    'CM',
+    'HUMAS',
+    'MUCC',
+    'RAB',
+    'EKRAF'
+);
+
+
+ALTER TYPE public.division_choice OWNER TO postgres;
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -138,6 +156,37 @@ ALTER SEQUENCE public.media_categories_id_seq OWNED BY public.media_categories.i
 
 
 --
+-- Name: registrants; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.registrants (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    nim text NOT NULL,
+    angkatan text NOT NULL,
+    prodi text NOT NULL,
+    fakultas text NOT NULL,
+    domicile text NOT NULL,
+    phone text NOT NULL,
+    email text NOT NULL,
+    password text NOT NULL,
+    division_1 public.division_choice NOT NULL,
+    division_2 public.division_choice NOT NULL,
+    swot_s text NOT NULL,
+    swot_w text NOT NULL,
+    swot_o text NOT NULL,
+    swot_t text NOT NULL,
+    organization_exp text NOT NULL,
+    commitment text NOT NULL,
+    cv_url text NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.registrants OWNER TO postgres;
+
+--
 -- Name: schema_migration; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -193,6 +242,30 @@ ALTER TABLE ONLY public.media_categories
 
 ALTER TABLE ONLY public.media
     ADD CONSTRAINT media_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: registrants registrants_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.registrants
+    ADD CONSTRAINT registrants_email_key UNIQUE (email);
+
+
+--
+-- Name: registrants registrants_nim_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.registrants
+    ADD CONSTRAINT registrants_nim_key UNIQUE (nim);
+
+
+--
+-- Name: registrants registrants_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.registrants
+    ADD CONSTRAINT registrants_pkey PRIMARY KEY (id);
 
 
 --

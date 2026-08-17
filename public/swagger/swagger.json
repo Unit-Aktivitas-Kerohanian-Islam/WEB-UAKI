@@ -1,0 +1,532 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API UKM UAKI - Backend Server",
+    "description": "Dokumentasi API untuk sistem backend UKM UAKI menggunakan Buffalo, PostgreSQL, dan Local Storage.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/admins/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login Admin",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "admin@uaki.com" },
+                  "password": { "type": "string", "example": "rahasia123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login berhasil" }
+        }
+      }
+    },
+    "/admins": {
+      "get": {
+        "tags": ["Admins (Super Admin Only)"],
+        "summary": "List Semua Admin",
+        "responses": {
+          "200": { "description": "Berhasil mengambil data" }
+        }
+      }
+    },
+    "/admins/{admin_id}": {
+      "get": {
+        "tags": ["Admins (Super Admin Only)"],
+        "summary": "Get Detail Admin",
+        "parameters": [
+          {
+            "name": "admin_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Detail Admin" }
+        }
+      }
+    },
+    "/registrants/login": {
+      "post": {
+        "tags": ["Registrants"],
+        "summary": "Login Sementara untuk Pendaftar (Testing)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "pendaftar@student.ub.ac.id" },
+                  "password": { "type": "string", "example": "pass123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login berhasil" }
+        }
+      }
+    },
+    "/registrants/cv": {
+      "post": {
+        "tags": ["Registrants"],
+        "summary": "Upload File CV (PDF Maksimal 3MB)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["cv"],
+                "properties": {
+                  "cv": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "File PDF format wajib .pdf max 3MB"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Upload sukses, mengembalikan url file" },
+          "400": { "description": "File tidak valid atau melebihi batas ukuran" }
+        }
+      }
+    },
+    "/registrants": {
+      "get": {
+        "tags": ["Registrants"],
+        "summary": "List Data Pendaftar (Hanya Admin)",
+        "responses": {
+          "200": { "description": "Menampilkan list pendaftar" }
+        }
+      },
+      "post": {
+        "tags": ["Registrants"],
+        "summary": "Submit Form Pendaftaran (JSON)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "nim", "email", "password", "division_1", "cv_url"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "nim": { "type": "string" },
+                  "angkatan": { "type": "string" },
+                  "prodi": { "type": "string" },
+                  "fakultas": { "type": "string" },
+                  "domicile": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "division_1": { "type": "string", "enum": ["KP", "MENTORING", "SYIAR", "CM", "HUMAS", "MUCC", "RAB", "EKRAF"] },
+                  "division_2": { "type": "string", "enum": ["KP", "MENTORING", "SYIAR", "CM", "HUMAS", "MUCC", "RAB", "EKRAF"] },
+                  "swot_s": { "type": "string" },
+                  "swot_w": { "type": "string" },
+                  "swot_o": { "type": "string" },
+                  "swot_t": { "type": "string" },
+                  "organization_exp": { "type": "string" },
+                  "commitment": { "type": "string" },
+                  "cv_url": { "type": "string", "example": "/uploads/cv/uuid-filename.pdf" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Pendaftaran sukses" },
+          "400": { "description": "Validasi error atau data tidak lengkap" }
+        }
+      }
+    },
+    "/registrants/{registrant_id}": {
+      "get": {
+        "tags": ["Registrants"],
+        "summary": "Detail Data Pendaftar",
+        "parameters": [
+          {
+            "name": "registrant_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Detail berhasil ditampilkan" }
+        }
+      },
+      "delete": {
+        "tags": ["Registrants"],
+        "summary": "Hapus Pendaftar (Dan File CV Lokal)",
+        "parameters": [
+          {
+            "name": "registrant_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Berhasil dihapus" }
+        }
+      }
+    },
+    "/articles": {
+      "get": {
+        "tags": ["Articles"],
+        "summary": "List Artikel (Publik)",
+        "security": [],
+        "responses": {
+          "200": { "description": "Berhasil" }
+        }
+      },
+      "post": {
+        "tags": ["Articles"],
+        "summary": "Buat Artikel Baru",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": { "type": "string" },
+                  "title": { "type": "string" },
+                  "value": { "type": "string" },
+                  "img_url": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Berhasil dibuat" }
+        }
+      }
+    },
+    "/articles/image": {
+      "post": {
+        "tags": ["Articles"],
+        "summary": "Upload Gambar Artikel",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Berhasil upload dan mengembalikan URL" }
+        }
+      }
+    },
+    "/articles/{article_id}": {
+      "get": {
+        "tags": ["Articles"],
+        "summary": "Detail Artikel (Publik)",
+        "security": [],
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Detail artikel" }
+        }
+      },
+      "put": {
+        "tags": ["Articles"],
+        "summary": "Update Artikel",
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": { "type": "string" },
+                  "title": { "type": "string" },
+                  "value": { "type": "string" },
+                  "img_url": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Berhasil update" }
+        }
+      },
+      "delete": {
+        "tags": ["Articles"],
+        "summary": "Hapus Artikel",
+        "parameters": [
+          {
+            "name": "article_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Terhapus" }
+        }
+      }
+    },
+    "/media": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "List Media (Publik)",
+        "security": [],
+        "responses": {
+          "200": { "description": "Berhasil" }
+        }
+      },
+      "post": {
+        "tags": ["Media"],
+        "summary": "Buat Media Baru",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "img_url": { "type": "string" },
+                  "category_id": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Berhasil" }
+        }
+      }
+    },
+    "/media/image": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Upload Gambar Media",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Berhasil upload" }
+        }
+      }
+    },
+    "/media/{media_id}": {
+      "get": {
+        "tags": ["Media"],
+        "summary": "Detail Media (Publik)",
+        "security": [],
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Detail media" }
+        }
+      },
+      "put": {
+        "tags": ["Media"],
+        "summary": "Update Media",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "img_url": { "type": "string" },
+                  "category_id": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Update berhasil" }
+        }
+      },
+      "delete": {
+        "tags": ["Media"],
+        "summary": "Hapus Media",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Terhapus" }
+        }
+      }
+    },
+    "/media-categories": {
+      "get": {
+        "tags": ["Media Categories"],
+        "summary": "List Kategori Media (Publik)",
+        "security": [],
+        "responses": {
+          "200": { "description": "List Kategori" }
+        }
+      },
+      "post": {
+        "tags": ["Media Categories"],
+        "summary": "Buat Kategori Baru (Super Admin)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Kategori Dibuat" }
+        }
+      }
+    },
+    "/media-categories/{media_category_id}": {
+      "get": {
+        "tags": ["Media Categories"],
+        "summary": "Detail Kategori",
+        "parameters": [
+          {
+            "name": "media_category_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Detail Kategori" }
+        }
+      },
+      "put": {
+        "tags": ["Media Categories"],
+        "summary": "Update Kategori (Super Admin)",
+        "parameters": [
+          {
+            "name": "media_category_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Update berhasil" }
+        }
+      },
+      "delete": {
+        "tags": ["Media Categories"],
+        "summary": "Hapus Kategori (Super Admin)",
+        "parameters": [
+          {
+            "name": "media_category_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Hapus berhasil" }
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"net/http"
 	"sync"
 
 	"backend_server/jwt"
@@ -20,8 +21,6 @@ import (
 	"github.com/unrolled/secure"
 )
 
-// ENV is used to help switch settings based on where the
-// application is being run. Default is "development".
 var ENV = envy.Get("GO_ENV", "development")
 var JWTService jwt.Interface
 
@@ -31,19 +30,6 @@ var (
 	T       *i18n.Translator
 )
 
-// App is where all routes and middleware for buffalo
-// should be defined. This is the nerve center of your
-// application.
-//
-// Routing, middleware, groups, etc... are declared TOP -> DOWN.
-// This means if you add a middleware to `app` *after* declaring a
-// group, that group will NOT have that new middleware. The same
-// is true of resource declarations as well.
-//
-// It also means that routes are checked in the order they are declared.
-// `ServeFiles` is a CATCH-ALL route, so it should always be
-// placed last in the route declarations, as it will prevent routes
-// declared after it to never be called.
 func App() *buffalo.App {
 	appOnce.Do(func() {
 		app = buffalo.New(buffalo.Options{
@@ -57,28 +43,21 @@ func App() *buffalo.App {
 
 		JWTService = jwt.Init()
 
-		// Automatically redirect to SSL
 		app.Use(forceSSL())
-
-		// Log request parameters (filters apply).
 		app.Use(paramlogger.ParameterLogger)
-
-		// Set the request content type to JSON
 		app.Use(contenttype.Set("application/json"))
-
-		// Wraps each request in a transaction.
-		//   c.Value("tx").(*pop.Connection)
-		// Remove to disable this.
 		app.Use(popmw.Transaction(models.DB))
 
-		//middleware for translations
 		auth := middlewares.AuthMiddleware(JWTService)
 		superAdminAuth := middlewares.SuperAdminMiddleware
 
-		//routes
 		app.GET("/", HomeHandler)
 
-		// app.POST("/admin/login", Login)
+		// Serve Local Uploads
+		app.ServeFiles("/uploads", http.Dir("./public/uploads"))
+		
+		// Serve Swagger UI
+		app.ServeFiles("/swagger", http.Dir("./public/swagger"))
 
 		admins := AdminsResource{}
 		app.POST("/admins/login", admins.Login)
@@ -86,10 +65,6 @@ func App() *buffalo.App {
 		adminRoute.Middleware.Use(auth, superAdminAuth)
 		adminRoute.Middleware.Skip(auth, admins.Login)
 		adminRoute.Middleware.Skip(superAdminAuth, admins.Login)
-	
-
-		// adminRoute.Middleware.Skip(superAdminAuth, admins.Create)
-		// adminRoute.Middleware.Skip(auth, admins.Create)
 
 		articles := NewArticleResource()
 		app.POST("/articles/image", auth(articles.UploadImage))
@@ -109,15 +84,22 @@ func App() *buffalo.App {
 		mediaCategoriesRoute.Middleware.Use(superAdminAuth)
 		mediaCategoriesRoute.Middleware.Skip(auth, mediaCategories.List)
 		mediaCategoriesRoute.Middleware.Skip(superAdminAuth, mediaCategories.List)
+		
+		// Registrants Routing
+		registrants := NewRegistrantsResource()
+		app.POST("/registrants/login", registrants.Login)
+		app.POST("/registrants/cv", registrants.UploadCV) // Endpoint Upload CV terpisah
+		
+		registrantsRoute := app.Resource("/registrants", registrants)
+		registrantsRoute.Middleware.Use(auth)
+		
+		// Bebaskan akses publik untuk Create (Submit JSON), UploadCV, dan Login
+		registrantsRoute.Middleware.Skip(auth, registrants.Create, registrants.UploadCV)
 	})
 
 	return app
 }
 
-// translations will load locale files, set up the translator `actions.T`,
-// and will return a middleware to use to load the correct locale for each
-// request.
-// for more information: https://gobuffalo.io/en/docs/localization
 func translations() buffalo.MiddlewareFunc {
 	var err error
 	if T, err = i18n.New(locales.FS(), "en-US"); err != nil {
@@ -126,11 +108,6 @@ func translations() buffalo.MiddlewareFunc {
 	return T.Middleware()
 }
 
-// forceSSL will return a middleware that will redirect an incoming request
-// if it is not HTTPS. "http://example.com" => "https://example.com".
-// This middleware does **not** enable SSL. for your application. To do that
-// we recommend using a proxy: https://gobuffalo.io/en/docs/proxy
-// for more information: https://github.com/unrolled/secure/
 func forceSSL() buffalo.MiddlewareFunc {
 	return forcessl.Middleware(secure.Options{
 		SSLRedirect:     ENV == "production",
