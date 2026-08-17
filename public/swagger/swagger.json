@@ -50,6 +50,106 @@
         }
       }
     },
+    "/registrants/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login Pendaftar (Calon Staf)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "pendaftar@student.ub.ac.id" },
+                  "password": { "type": "string", "example": "pass123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login berhasil" }
+        }
+      }
+    },
+    "/registrants/me": {
+      "get": {
+        "tags": ["Registrants (Self)"],
+        "summary": "Lihat Profil Sendiri (Token Based)",
+        "responses": {
+          "200": { "description": "Berhasil menampilkan profil" }
+        }
+      },
+      "put": {
+        "tags": ["Registrants (Self)"],
+        "summary": "Update Profil Sendiri",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "angkatan": { "type": "string" },
+                  "prodi": { "type": "string" },
+                  "fakultas": { "type": "string" },
+                  "domicile": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "division_1": { "type": "string" },
+                  "division_2": { "type": "string" },
+                  "swot_s": { "type": "string" },
+                  "swot_w": { "type": "string" },
+                  "swot_o": { "type": "string" },
+                  "swot_t": { "type": "string" },
+                  "organization_exp": { "type": "string" },
+                  "commitment": { "type": "string" },
+                  "cv_url": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Berhasil diperbarui" }
+        }
+      }
+    },
+    "/registrants/{registrant_id}/status": {
+      "patch": {
+        "tags": ["Registrants"],
+        "summary": "Update Status Kelulusan (Super Admin Only)",
+        "parameters": [
+          {
+            "name": "registrant_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["PENDING", "LOLOS_BERKAS", "DITOLAK"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status diperbarui" }
+        }
+      }
+    },
     "/admins": {
       "get": {
         "tags": ["Admins (Super Admin Only)"],
@@ -73,30 +173,6 @@
         ],
         "responses": {
           "200": { "description": "Detail Admin" }
-        }
-      }
-    },
-    "/registrants/login": {
-      "post": {
-        "tags": ["Registrants"],
-        "summary": "Login Sementara untuk Pendaftar (Testing)",
-        "security": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "email": { "type": "string", "example": "pendaftar@student.ub.ac.id" },
-                  "password": { "type": "string", "example": "pass123" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "Login berhasil" }
         }
       }
     },

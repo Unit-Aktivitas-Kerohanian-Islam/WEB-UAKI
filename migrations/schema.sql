@@ -62,6 +62,19 @@ CREATE TYPE public.division_choice AS ENUM (
 
 ALTER TYPE public.division_choice OWNER TO postgres;
 
+--
+-- Name: registrant_status; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.registrant_status AS ENUM (
+    'PENDING',
+    'LOLOS_BERKAS',
+    'DITOLAK'
+);
+
+
+ALTER TYPE public.registrant_status OWNER TO postgres;
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -180,7 +193,8 @@ CREATE TABLE public.registrants (
     commitment text NOT NULL,
     cv_url text NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    status public.registrant_status DEFAULT 'PENDING'::public.registrant_status NOT NULL
 );
 
 

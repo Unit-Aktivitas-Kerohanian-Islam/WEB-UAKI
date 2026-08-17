@@ -20,7 +20,7 @@ type Registrant struct {
 	Domicile        string    `json:"domicile" db:"domicile"`
 	Phone           string    `json:"phone" db:"phone"`
 	Email           string    `json:"email" db:"email"`
-	Password        string    `json:"-" db:"password"` // Jangan return password di JSON
+	Password        string    `json:"password,omitempty" db:"password"`
 	Division1       string    `json:"division_1" db:"division_1"`
 	Division2       string    `json:"division_2" db:"division_2"`
 	SwotS           string    `json:"swot_s" db:"swot_s"`
@@ -30,6 +30,7 @@ type Registrant struct {
 	OrganizationExp string    `json:"organization_exp" db:"organization_exp"`
 	Commitment      string    `json:"commitment" db:"commitment"`
 	CvUrl           string    `json:"cv_url" db:"cv_url"`
+	Status          string    `json:"status" db:"status"` // Tambahan Status
 
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
