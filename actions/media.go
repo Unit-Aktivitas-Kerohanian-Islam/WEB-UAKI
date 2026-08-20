@@ -62,10 +62,10 @@ func (v MediaResource) Create(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "invalid request body", err.Error())
 	}
 
-	// 1. Ambil Admin ID dari JWT Context dan ubah ke gofrs/uuid
-	adminIDStr, ok := c.Value("admin_id").(string)
-	if ok && adminIDStr != "" {
-		adminID, _ := uuid.FromString(adminIDStr)
+	// PERBAIKAN: Ubah admin_id menjadi user_id
+	userIDStr, ok := c.Value("user_id").(string)
+	if ok && userIDStr != "" {
+		adminID, _ := uuid.FromString(userIDStr)
 		media.AdminID = adminID
 	}
 
@@ -84,7 +84,6 @@ func (v MediaResource) Create(c buffalo.Context) error {
 
 	return Response(c, http.StatusCreated, "media created successfully", media)
 }
-
 func (v MediaResource) Update(c buffalo.Context) error {
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {

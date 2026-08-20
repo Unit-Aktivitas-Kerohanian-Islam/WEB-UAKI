@@ -28,7 +28,7 @@ func AuthMiddleware(jwtService jwt.Interface) buffalo.MiddlewareFunc {
 				}))
 			}
 
-			adminId, err := jwtService.ValidateToken(tokenString)
+			userID, role, err := jwtService.ValidateToken(tokenString)
 			if err != nil {
 				return c.Render(http.StatusUnauthorized, render.JSON(map[string]interface{}{
 					"success": false,
@@ -36,10 +36,10 @@ func AuthMiddleware(jwtService jwt.Interface) buffalo.MiddlewareFunc {
 				}))
 			}
 
-			// Simpan admin ID ke context untuk digunakan handler berikutnya
-			c.Set("admin_id", adminId.String())
+			// Simpan user_id dan role ke context
+			c.Set("user_id", userID.String())
+			c.Set("role", role)
 
-			// lanjutkan ke handler berikutnya
 			return next(c)
 		}
 	}

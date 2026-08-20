@@ -204,7 +204,6 @@ func (v AdminsResource) Destroy(c buffalo.Context) error {
 
 // LoginHandler handles login requests
 func (v AdminsResource) Login(c buffalo.Context) error {
-	// Ambil input JSON
 	var input struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -213,46 +212,38 @@ func (v AdminsResource) Login(c buffalo.Context) error {
 		return c.Error(http.StatusBadRequest, err)
 	}
 
-	// Ambil DB connection
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
 		return fmt.Errorf("no transaction found")
 	}
 
-	// Cari admin berdasarkan email
 	admin := &models.Admin{}
 	if err := tx.Where("email = ?", input.Email).First(admin); err != nil {
 		return Response(c, http.StatusInternalServerError, "Admin not found", nil)
 	}
 
-	// Cek is_active
 	if !admin.IsActive {
 		return Response(c, http.StatusForbidden, "Admin account is inactive", nil)
 	}
 
-	// Cek password
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(input.Password)); err != nil {
 		return Response(c, http.StatusInternalServerError, "Wrong password", nil)
 	}
 
-	// TODO: generate token (JWT misalnya)
-	token, err := JWTService.CreateJWTToken(admin.ID)
+	// PENTING: Role "admin"
+	token, err := JWTService.CreateJWTToken(admin.ID, "admin")
 	if err != nil {
 		return Response(c, http.StatusInternalServerError, "Error generating token", nil)
 	}
 
-	//update last_login
 	admin.LastLogin = time.Now()
-	if err := tx.Update(admin); err != nil {
-		return Response(c, http.StatusInternalServerError, "Failed to update last login", nil)
-	}
+	tx.Update(admin)
 
-	// Respon dengan token dan admin.ID
 	data := map[string]interface{}{
-		"admin_id": admin.ID,
-		"is_super_admin" : admin.IsSuperAdmin,
-		"is_active" : admin.IsActive,
-		"token":    token,
+		"admin_id":       admin.ID,
+		"is_super_admin": admin.IsSuperAdmin,
+		"is_active":      admin.IsActive,
+		"token":          token,
 	}
 
 	return Response(c, http.StatusOK, "Login successfully", data)

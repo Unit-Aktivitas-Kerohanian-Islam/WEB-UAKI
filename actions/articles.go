@@ -60,10 +60,10 @@ func (v ArticlesResource) Create(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "Invalid article data", nil)
 	}
 
-	// 1. Ambil Admin ID dari JWT Context dan ubah ke gofrs/uuid
-	adminIDStr, ok := c.Value("admin_id").(string)
-	if ok && adminIDStr != "" {
-		adminID, _ := uuid.FromString(adminIDStr)
+	// PERBAIKAN: Ubah admin_id menjadi user_id
+	userIDStr, ok := c.Value("user_id").(string)
+	if ok && userIDStr != "" {
+		adminID, _ := uuid.FromString(userIDStr)
 		article.AdminID = adminID
 	}
 

@@ -50,14 +50,11 @@ func App() *buffalo.App {
 		app.Use(popmw.Transaction(models.DB))
 
 		auth := middlewares.AuthMiddleware(JWTService)
+		adminAuth := middlewares.AdminMiddleware
 		superAdminAuth := middlewares.SuperAdminMiddleware
 
 		app.GET("/", HomeHandler)
 
-		// ==========================================
-		// CARA BULLETPROOF SERVE SWAGGER (Anti-Loop & Anti-Cache)
-		// ==========================================
-		// 1. Endpoint HTML (URL Baru: /docs)
 		app.GET("/docs", func(c buffalo.Context) error {
 			c.Response().Header().Set("Content-Type", "text/html")
 			html := `<!DOCTYPE html>
@@ -85,7 +82,6 @@ func App() *buffalo.App {
 			return err
 		})
 
-		// 2. Endpoint JSON (Membaca langsung dari folder public)
 		app.GET("/docs.json", func(c buffalo.Context) error {
 			c.Response().Header().Set("Content-Type", "application/json")
 			fileBytes, err := os.ReadFile("./public/swagger/swagger.json")
@@ -95,55 +91,64 @@ func App() *buffalo.App {
 			_, err = c.Response().Write(fileBytes)
 			return err
 		})
-		// ==========================================
 
+		// ================== ADMIN ROUTES ==================
 		admins := AdminsResource{}
 		app.POST("/admins/login", admins.Login)
 		adminRoute := app.Resource("/admins", admins)
-		adminRoute.Middleware.Use(auth, superAdminAuth)
+		adminRoute.Middleware.Use(auth, adminAuth, superAdminAuth)
 		adminRoute.Middleware.Skip(auth, admins.Login)
+		adminRoute.Middleware.Skip(adminAuth, admins.Login)
 		adminRoute.Middleware.Skip(superAdminAuth, admins.Login)
 
+		// ================== ARTICLE ROUTES ==================
 		articles := NewArticleResource()
-		app.POST("/articles/image", auth(articles.UploadImage))
+		app.POST("/articles/image", auth(adminAuth(articles.UploadImage)))
 		articleRoute := app.Resource("/articles", articles)
-		articleRoute.Middleware.Use(auth)
+		articleRoute.Middleware.Use(auth, adminAuth)
 		articleRoute.Middleware.Skip(auth, articles.List, articles.Show)
+		articleRoute.Middleware.Skip(adminAuth, articles.List, articles.Show)
 
+		// ================== MEDIA ROUTES ==================
 		media := NewMediaResource()
-		app.POST("/media/image", auth(media.UploadImage))
+		app.POST("/media/image", auth(adminAuth(media.UploadImage)))
 		mediaRoute := app.Resource("/media", media)
-		mediaRoute.Middleware.Use(auth)
+		mediaRoute.Middleware.Use(auth, adminAuth)
 		mediaRoute.Middleware.Skip(auth, media.List, media.Show)
+		mediaRoute.Middleware.Skip(adminAuth, media.List, media.Show)
 
 		mediaCategories := MediaCategoriesResource{}
 		mediaCategoriesRoute := app.Resource("/media-categories", mediaCategories)
-		mediaCategoriesRoute.Middleware.Use(auth)
-		mediaCategoriesRoute.Middleware.Use(superAdminAuth)
+		mediaCategoriesRoute.Middleware.Use(auth, adminAuth, superAdminAuth)
 		mediaCategoriesRoute.Middleware.Skip(auth, mediaCategories.List)
+		mediaCategoriesRoute.Middleware.Skip(adminAuth, mediaCategories.List)
 		mediaCategoriesRoute.Middleware.Skip(superAdminAuth, mediaCategories.List)
 		
+		// ================== REGISTRANT ROUTES ==================
 		registrants := NewRegistrantsResource()
 		app.POST("/registrants/login", registrants.Login)
-		app.POST("/registrants/cv", registrants.UploadCV) // Endpoint Upload CV
+		app.POST("/registrants/auth/google", registrants.GoogleLogin)
 		
+		// Pendaftar Only (Validasi di dalam handler)
+		app.POST("/registrants/cv", auth(registrants.UploadCV)) 
 		app.GET("/registrants/me", auth(registrants.GetMe))
 		app.PUT("/registrants/me", auth(registrants.UpdateMe))
-		app.PATCH("/registrants/{registrant_id}/status", auth(superAdminAuth(registrants.UpdateStatus)))
-
-		registrantsRoute := app.Resource("/registrants", registrants)
-		registrantsRoute.Middleware.Use(auth)
 		
-		// Bebaskan akses publik
-		registrantsRoute.Middleware.Skip(auth, registrants.Create, registrants.UploadCV)
+		// Admin Only (Validasi via Middleware)
+		app.PATCH("/registrants/{registrant_id}/status", auth(adminAuth(registrants.UpdateStatus)))
+		app.POST("/registrants/send-schedule", auth(adminAuth(registrants.SendSchedule)))
 
-		// Serve folder uploads untuk gambar dan PDF
+		// List, Show, Destroy Registrant dijaga oleh adminAuth
+		registrantsRoute := app.Resource("/registrants", registrants)
+		registrantsRoute.Middleware.Use(auth, adminAuth)
+		
 		app.ServeFiles("/uploads", http.Dir("./public/uploads"))
 	})
 
 	return app
 }
 
+// ... (sisa fungsi translations dan forceSSL biarkan tetap sama)
 func translations() buffalo.MiddlewareFunc {
 	var err error
 	if T, err = i18n.New(locales.FS(), "en-US"); err != nil {

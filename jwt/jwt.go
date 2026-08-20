@@ -11,8 +11,8 @@ import (
 )
 
 type Interface interface {
-	CreateJWTToken(adminID uuid.UUID) (string, error)
-	ValidateToken(tokenString string) (uuid.UUID, error)
+	CreateJWTToken(userID uuid.UUID, role string) (string, error)
+	ValidateToken(tokenString string) (uuid.UUID, string, error)
 }
 
 type jsonWebToken struct {
@@ -21,7 +21,8 @@ type jsonWebToken struct {
 }
 
 type Claims struct {
-	AdminID uuid.UUID
+	UserID uuid.UUID `json:"user_id"`
+	Role   string    `json:"role"` // "admin" atau "registrant"
 	jwt.RegisteredClaims
 }
 
@@ -38,9 +39,10 @@ func Init() Interface {
 	}
 }
 
-func (j *jsonWebToken) CreateJWTToken(adminId uuid.UUID) (string, error) {
+func (j *jsonWebToken) CreateJWTToken(userID uuid.UUID, role string) (string, error) {
 	claim := &Claims{
-		AdminID: adminId,
+		UserID: userID,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.ExpiredTime)),
 		},
@@ -56,24 +58,16 @@ func (j *jsonWebToken) CreateJWTToken(adminId uuid.UUID) (string, error) {
 	return tokenString, nil
 }
 
-func (j *jsonWebToken) ValidateToken(tokenString string) (uuid.UUID, error) {
-	var (
-		claims Claims
-		adminID uuid.UUID
-	)
+func (j *jsonWebToken) ValidateToken(tokenString string) (uuid.UUID, string, error) {
+	var claims Claims
 
 	token, err := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(j.SecretKey), nil
 	})
-	if err != nil {
-		return adminID, err
+	
+	if err != nil || !token.Valid {
+		return uuid.Nil, "", err
 	}
 
-	if !token.Valid {
-		return adminID, err
-	}
-
-	adminID = claims.AdminID
-
-	return adminID, nil
+	return claims.UserID, claims.Role, nil
 }

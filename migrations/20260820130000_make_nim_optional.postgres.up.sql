@@ -1,0 +1,1 @@
+ALTER TABLE registrants ALTER COLUMN nim DROP NOT NULL;
