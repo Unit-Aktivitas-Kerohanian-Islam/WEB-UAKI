@@ -1,9 +1,9 @@
 development:
   dialect: postgres
-  database: backend_server_development
-  user: postgres
-  password: Smaira123!
-  host: 127.0.0.1
+  database: {{envOr "DB_NAME" "backend_server_development"}}
+  user: {{envOr "DB_USER" "postgres"}}
+  password: {{envOr "DB_PASSWORD" "postgres"}}
+  host: {{envOr "DB_HOST" "127.0.0.1"}}
   pool: 15
 
 test:

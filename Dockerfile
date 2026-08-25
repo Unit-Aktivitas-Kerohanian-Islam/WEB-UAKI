@@ -16,9 +16,9 @@ WORKDIR /src/WEB_UAKI
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Install Buffalo CLI dan Soda CLI
+# Install Buffalo CLI dan Soda CLI dengan versi spesifik yang cocok dengan go.mod
 RUN go install github.com/gobuffalo/cli/cmd/buffalo@latest && \
-    go install github.com/gobuffalo/pop/v6/soda@latest
+    go install github.com/gobuffalo/pop/v6/soda@v6.1.1
 
 # Copy seluruh source code project
 COPY . .
@@ -51,9 +51,12 @@ COPY --from=builder /go/bin/soda /usr/local/bin/soda
 COPY --from=builder /src/WEB_UAKI/database.yml ./database.yml
 COPY --from=builder /src/WEB_UAKI/migrations ./migrations
 
+# PENTING: Copy folder public agar swagger.json terbaca oleh server
+COPY --from=builder /src/WEB_UAKI/public ./public
+
 # Set environment agar bisa diakses dari luar
 ENV ADDR=0.0.0.0
 EXPOSE 3000
 
-# Jalankan migrasi dulu, baru jalankan aplikasi Buffalo
-CMD ["bash", "-c", "cd /app && echo '📦 Running migrations...' && soda migrate up && echo '🚀 Starting Buffalo app...' && ./app"]
+# Jalankan migrasi dulu, lalu jalankan seed, baru jalankan aplikasi Buffalo
+CMD ["bash", "-c", "cd /app && echo '📦 Running migrations...' && soda migrate up && echo '🌱 Running seeds...' && ./app task db:seed && echo '🚀 Starting Buffalo app...' && ./app"]

@@ -37,7 +37,12 @@ func App() *buffalo.App {
 			Env:          ENV,
 			SessionStore: sessions.Null{},
 			PreWares: []buffalo.PreWare{
-				cors.Default().Handler,
+				cors.New(cors.Options{
+					AllowedOrigins:   []string{"*"}, 
+					AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+					AllowedHeaders:   []string{"Authorization", "Content-Type", "Accept"}, 
+					AllowCredentials: true,
+				}).Handler,
 			},
 			SessionName: "_backend_server_session",
 		})
