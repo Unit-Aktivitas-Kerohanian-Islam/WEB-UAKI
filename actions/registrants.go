@@ -69,7 +69,6 @@ func (v RegistrantsResource) Show(c buffalo.Context) error {
 	return Response(c, http.StatusOK, "Success", registrant)
 }
 
-// FUNGSI INI DIMATIKAN SECARA PERMANEN
 func (v RegistrantsResource) Create(c buffalo.Context) error {
 	return Response(c, http.StatusMethodNotAllowed, "Endpoint dinonaktifkan. Pendaftaran sekarang wajib melalui SSO Google.", nil)
 }
@@ -99,8 +98,37 @@ func (v RegistrantsResource) Destroy(c buffalo.Context) error {
 	return Response(c, http.StatusOK, "Deleted successfully", nil)
 }
 
+func (v RegistrantsResource) UploadCV(c buffalo.Context) error {
+	role, _ := c.Value("role").(string)
+	if role != "registrant" {
+		return Response(c, http.StatusForbidden, "Hanya Pendaftar yang diizinkan mengunggah CV", nil)
+	}
+
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 3<<20)
+
+	file, err := c.File("cv")
+	if err != nil {
+		return Response(c, http.StatusBadRequest, "CV is required or file too large (Max 3MB)", err.Error())
+	}
+	defer file.Close()
+
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext != ".pdf" {
+		return Response(c, http.StatusBadRequest, "Only PDF files are allowed", nil)
+	}
+
+	safeFilename := strings.ReplaceAll(file.Filename, " ", "_")
+	url, err := v.storageService.Upload(c.Request().Context(), "cv/"+uuid.New().String()+"-"+safeFilename, file)
+	if err != nil {
+		return Response(c, http.StatusInternalServerError, "Failed to save CV", err.Error())
+	}
+
+	return Response(c, http.StatusOK, "Upload success", map[string]string{
+		"url": url,
+	})
+}
+
 func (v RegistrantsResource) Login(c buffalo.Context) error {
-	// ... (kode bind JSON tetap sama seperti aslinya)
 	var input struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -127,7 +155,6 @@ func (v RegistrantsResource) Login(c buffalo.Context) error {
 		return Response(c, http.StatusUnauthorized, "Wrong password", nil)
 	}
 
-	// PENTING: Role "registrant"
 	token, err := JWTService.CreateJWTToken(registrant.ID, "registrant")
 	if err != nil {
 		return Response(c, http.StatusInternalServerError, "Failed to generate token", err.Error())
@@ -140,11 +167,11 @@ func (v RegistrantsResource) Login(c buffalo.Context) error {
 		"status":        registrant.Status,
 		"token":         token,
 	}
+
 	return Response(c, http.StatusOK, "Login successful", data)
 }
 
 func (v RegistrantsResource) GoogleLogin(c buffalo.Context) error {
-	// ... (kode ambil dan ekstrak JSON dari Google sama persis)
 	var input struct {
 		Token string `json:"google_token"`
 	}
@@ -158,12 +185,19 @@ func (v RegistrantsResource) GoogleLogin(c buffalo.Context) error {
 	}
 	defer resp.Body.Close()
 
+	// PERBAIKAN: Menambahkan kolom Aud untuk menangkap nilai Client ID dari token
 	var googleData struct {
 		Email string `json:"email"`
 		Name  string `json:"name"`
+		Aud   string `json:"aud"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&googleData); err != nil {
 		return Response(c, http.StatusInternalServerError, "Failed to parse Google response", nil)
+	}
+
+	expectedClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	if expectedClientID != "" && googleData.Aud != expectedClientID {
+		return Response(c, http.StatusUnauthorized, "Token valid, tetapi tidak berasal dari aplikasi UAKI yang sah.", nil)
 	}
 
 	if !strings.HasSuffix(googleData.Email, "@student.ub.ac.id") {
@@ -198,7 +232,6 @@ func (v RegistrantsResource) GoogleLogin(c buffalo.Context) error {
 		}
 	}
 
-	// PENTING: Role "registrant"
 	token, err := JWTService.CreateJWTToken(registrant.ID, "registrant")
 	if err != nil {
 		return Response(c, http.StatusInternalServerError, "Failed to generate token", err.Error())
@@ -211,6 +244,7 @@ func (v RegistrantsResource) GoogleLogin(c buffalo.Context) error {
 		"status":        registrant.Status,
 		"token":         token,
 	}
+
 	return Response(c, http.StatusOK, "Login Google berhasil", data)
 }
 
@@ -246,7 +280,6 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		return Response(c, http.StatusNotFound, "Registrant not found", nil)
 	}
 
-	// ... (Sisa kode Bind JSON & Update Field biarkan sama persis dengan fungsi UpdateMe aslimu)
 	var input models.Registrant
 	if err := c.Bind(&input); err != nil {
 		return Response(c, http.StatusBadRequest, "Invalid JSON data", err.Error())
@@ -288,36 +321,6 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 	return Response(c, http.StatusOK, "Profile updated successfully", registrant)
 }
 
-func (v RegistrantsResource) UploadCV(c buffalo.Context) error {
-	role, _ := c.Value("role").(string)
-	if role != "registrant" {
-		return Response(c, http.StatusForbidden, "Hanya Pendaftar yang diizinkan mengunggah CV", nil)
-	}
-
-	// ... (Sisa kode cek ukuran, simpan file biarkan sama persis dengan aslimu)
-	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 3<<20)
-
-	file, err := c.File("cv")
-	if err != nil {
-		return Response(c, http.StatusBadRequest, "CV is required or file too large (Max 3MB)", err.Error())
-	}
-	defer file.Close()
-
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext != ".pdf" {
-		return Response(c, http.StatusBadRequest, "Only PDF files are allowed", nil)
-	}
-
-	safeFilename := strings.ReplaceAll(file.Filename, " ", "_")
-	url, err := v.storageService.Upload(c.Request().Context(), "cv/"+uuid.New().String()+"-"+safeFilename, file)
-	if err != nil {
-		return Response(c, http.StatusInternalServerError, "Failed to save CV", err.Error())
-	}
-
-	return Response(c, http.StatusOK, "Upload success", map[string]string{
-		"url": url,
-	})
-}
 func (v RegistrantsResource) UpdateStatus(c buffalo.Context) error {
 	var input struct {
 		Status string `json:"status"`
