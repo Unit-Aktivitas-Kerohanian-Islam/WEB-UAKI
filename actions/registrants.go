@@ -91,6 +91,13 @@ func (v RegistrantsResource) Destroy(c buffalo.Context) error {
 		}
 	}
 
+	if registrant.TwibbonUrl.Valid && registrant.TwibbonUrl.String != "" {
+		key := v.storageService.ExtractObjectKey(registrant.TwibbonUrl.String)
+		if err := v.storageService.Delete(c.Request().Context(), key); err != nil {
+			log.Printf("⚠️ gagal hapus Twibbon lokal: %v", err)
+		}
+	}
+
 	if err := tx.Destroy(registrant); err != nil {
 		return Response(c, http.StatusInternalServerError, "Failed to delete", err.Error())
 	}
@@ -98,34 +105,51 @@ func (v RegistrantsResource) Destroy(c buffalo.Context) error {
 	return Response(c, http.StatusOK, "Deleted successfully", nil)
 }
 
-func (v RegistrantsResource) UploadCV(c buffalo.Context) error {
+func (v RegistrantsResource) UploadFile(c buffalo.Context) error {
 	role, _ := c.Value("role").(string)
 	if role != "registrant" {
-		return Response(c, http.StatusForbidden, "Hanya Pendaftar yang diizinkan mengunggah CV", nil)
+		return Response(c, http.StatusForbidden, "Hanya Pendaftar yang diizinkan mengunggah berkas", nil)
 	}
 
-	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 3<<20)
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 10<<20)
 
-	file, err := c.File("cv")
-	if err != nil {
-		return Response(c, http.StatusBadRequest, "CV is required or file too large (Max 3MB)", err.Error())
+	result := make(map[string]string)
+
+	cvFile, errCV := c.File("cv")
+	if errCV == nil {
+		defer cvFile.Close()
+		ext := strings.ToLower(filepath.Ext(cvFile.Filename))
+		if ext != ".pdf" {
+			return Response(c, http.StatusBadRequest, "CV harus berupa file PDF (.pdf)", nil)
+		}
+		safeFilename := strings.ReplaceAll(cvFile.Filename, " ", "_")
+		cvURL, err := v.storageService.Upload(c.Request().Context(), "cv/"+uuid.New().String()+"-"+safeFilename, cvFile)
+		if err != nil {
+			return Response(c, http.StatusInternalServerError, "Gagal menyimpan CV", err.Error())
+		}
+		result["cv_url"] = cvURL
 	}
-	defer file.Close()
 
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext != ".pdf" {
-		return Response(c, http.StatusBadRequest, "Only PDF files are allowed", nil)
+	twibbonFile, errTwibbon := c.File("twibbon")
+	if errTwibbon == nil {
+		defer twibbonFile.Close()
+		ext := strings.ToLower(filepath.Ext(twibbonFile.Filename))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+			return Response(c, http.StatusBadRequest, "Twibbon harus berupa file gambar (.jpg, .jpeg, .png, .webp)", nil)
+		}
+		safeFilename := strings.ReplaceAll(twibbonFile.Filename, " ", "_")
+		twibbonURL, err := v.storageService.Upload(c.Request().Context(), "twibbon/"+uuid.New().String()+"-"+safeFilename, twibbonFile)
+		if err != nil {
+			return Response(c, http.StatusInternalServerError, "Gagal menyimpan Twibbon", err.Error())
+		}
+		result["twibbon_url"] = twibbonURL
 	}
 
-	safeFilename := strings.ReplaceAll(file.Filename, " ", "_")
-	url, err := v.storageService.Upload(c.Request().Context(), "cv/"+uuid.New().String()+"-"+safeFilename, file)
-	if err != nil {
-		return Response(c, http.StatusInternalServerError, "Failed to save CV", err.Error())
+	if len(result) == 0 {
+		return Response(c, http.StatusBadRequest, "Setidaknya salah satu file ('cv' atau 'twibbon') harus disertakan", nil)
 	}
 
-	return Response(c, http.StatusOK, "Upload success", map[string]string{
-		"url": url,
-	})
+	return Response(c, http.StatusOK, "Upload success", result)
 }
 
 func (v RegistrantsResource) Login(c buffalo.Context) error {
@@ -293,12 +317,24 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		registrant.CvUrl = input.CvUrl
 	}
 
+	if input.TwibbonUrl.Valid && input.TwibbonUrl.String != "" && input.TwibbonUrl.String != registrant.TwibbonUrl.String {
+		if registrant.TwibbonUrl.Valid && registrant.TwibbonUrl.String != "" {
+			key := v.storageService.ExtractObjectKey(registrant.TwibbonUrl.String)
+			v.storageService.Delete(c.Request().Context(), key)
+		}
+		registrant.TwibbonUrl = input.TwibbonUrl
+	}
+
 	registrant.Name = input.Name
+	registrant.Nickname = input.Nickname
 	registrant.NIM = input.NIM
 	registrant.Angkatan = input.Angkatan
 	registrant.Prodi = input.Prodi
 	registrant.Fakultas = input.Fakultas
 	registrant.Domicile = input.Domicile
+	registrant.OriginCity = input.OriginCity
+	registrant.SchoolOrigin = input.SchoolOrigin
+	registrant.HasRohisExp = input.HasRohisExp
 	registrant.Phone = input.Phone
 	registrant.Division1 = input.Division1
 	registrant.Division2 = input.Division2

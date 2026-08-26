@@ -135,7 +135,7 @@ func App() *buffalo.App {
 		app.POST("/registrants/auth/google", registrants.GoogleLogin)
 		
 		// Pendaftar Only (Validasi di dalam handler)
-		app.POST("/registrants/cv", auth(registrants.UploadCV)) 
+		app.POST("/registrants/file", auth(registrants.UploadFile))
 		app.GET("/registrants/me", auth(registrants.GetMe))
 		app.PUT("/registrants/me", auth(registrants.UpdateMe))
 		

@@ -14,12 +14,16 @@ import (
 type Registrant struct {
 	ID              uuid.UUID    `json:"id" db:"id"`
 	Name            string       `json:"name" db:"name"`
+	Nickname        nulls.String `json:"nickname" db:"nickname"`
 	Email           string       `json:"email" db:"email"`
 	NIM             nulls.String `json:"nim" db:"nim"`
 	Angkatan        nulls.String `json:"angkatan" db:"angkatan"`
 	Prodi           nulls.String `json:"prodi" db:"prodi"`
 	Fakultas        nulls.String `json:"fakultas" db:"fakultas"`
 	Domicile        nulls.String `json:"domicile" db:"domicile"`
+	OriginCity      nulls.String `json:"origin_city" db:"origin_city"`
+	SchoolOrigin    nulls.String `json:"school_origin" db:"school_origin"`
+	HasRohisExp     nulls.Bool   `json:"has_rohis_exp" db:"has_rohis_exp"`
 	Phone           nulls.String `json:"phone" db:"phone"`
 	Password        nulls.String `json:"password,omitempty" db:"password"`
 	Division1       nulls.String `json:"division_1" db:"division_1"`
@@ -31,6 +35,7 @@ type Registrant struct {
 	OrganizationExp nulls.String `json:"organization_exp" db:"organization_exp"`
 	Commitment      nulls.String `json:"commitment" db:"commitment"`
 	CvUrl           nulls.String `json:"cv_url" db:"cv_url"`
+	TwibbonUrl      nulls.String `json:"twibbon_url" db:"twibbon_url"`
 	Status          string       `json:"status" db:"status"` 
 	
 	// Jadwal Screening

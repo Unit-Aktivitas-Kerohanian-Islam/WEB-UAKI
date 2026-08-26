@@ -189,11 +189,15 @@
                 "type": "object",
                 "properties": {
                   "name": { "type": "string" },
+                  "nickname": { "type": "string", "description": "Nama Panggilan" },
                   "nim": { "type": "string", "description": "Nomor Induk Mahasiswa (Opsional saat auto-register)" },
                   "angkatan": { "type": "string" },
                   "prodi": { "type": "string" },
                   "fakultas": { "type": "string" },
-                  "domicile": { "type": "string", "description": "Alamat Domisili saat ini" },
+                  "domicile": { "type": "string", "description": "Alamat Domisili / Tempat Tinggal di Malang" },
+                  "origin_city": { "type": "string", "description": "Asal Daerah / Kota Asal" },
+                  "school_origin": { "type": "string", "description": "Asal Sekolah (SMA/SMK)" },
+                  "has_rohis_exp": { "type": "boolean", "description": "Pernah mengikuti Rohis di SMA (true/false)" },
                   "phone": { "type": "string", "description": "Nomor WhatsApp aktif" },
                   "division_1": { "type": "string", "enum": ["KP", "MENTORING", "SYIAR", "CM", "HUMAS", "MUCC", "RAB", "EKRAF"], "description": "Pilihan divisi prioritas pertama" },
                   "division_2": { "type": "string", "enum": ["KP", "MENTORING", "SYIAR", "CM", "HUMAS", "MUCC", "RAB", "EKRAF"], "description": "Pilihan divisi cadangan" },
@@ -203,7 +207,8 @@
                   "swot_t": { "type": "string", "description": "Ancaman (Threats)" },
                   "organization_exp": { "type": "string", "description": "Riwayat Organisasi" },
                   "commitment": { "type": "string", "description": "Deskripsi komitmen di UAKI" },
-                  "cv_url": { "type": "string", "description": "URL dari endpoint upload CV" }
+                  "cv_url": { "type": "string", "description": "URL dari endpoint upload CV" },
+                  "twibbon_url": { "type": "string", "description": "URL dari endpoint upload Twibbon" }
                 }
               }
             }
@@ -212,11 +217,11 @@
         "responses": { "200": { "description": "Formulir berhasil diperbarui" } }
       }
     },
-    "/registrants/cv": {
+    "/registrants/file": {
       "post": {
         "tags": ["Registrants (Self)"],
-        "summary": "Upload CV",
-        "description": "Digunakan oleh pendaftar untuk mengunggah file CV. Akan me-return url fisik untuk disimpan melalui endpoint `PUT /registrants/me`.",
+        "summary": "Upload Berkas (CV & Twibbon Sekaligus / Terpisah)",
+        "description": "Digunakan oleh pendaftar untuk mengunggah CV (.pdf) dan/atau Twibbon (.jpg/.png/.webp). Dapat mengirim salah satu atau kedua file sekaligus dalam satu request.",
         "requestBody": {
           "required": true,
           "content": {
@@ -224,13 +229,14 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "cv": { "type": "string", "format": "binary", "description": "Format wajib .pdf dan ukuran file maksimal 3 MB" }
+                  "cv": { "type": "string", "format": "binary", "description": "Format file .pdf, maksimal 5 MB" },
+                  "twibbon": { "type": "string", "format": "binary", "description": "Format file .jpg, .jpeg, .png, .webp, maksimal 5 MB" }
                 }
               }
             }
           }
         },
-        "responses": { "200": { "description": "File sukses diupload" } }
+        "responses": { "200": { "description": "Berkas sukses diupload, mengembalikan cv_url dan/atau twibbon_url" } }
       }
     },
     "/registrants": {
