@@ -16,6 +16,7 @@ type Article struct {
 	Category string    `json:"category" db:"category"`
 	IsActive bool      `json:"is_active" db:"is_active"`
 	Title    string    `json:"title" db:"title"`
+	Slug     string    `json:"slug" db:"slug"`
 	Value    string    `json:"value" db:"value"`
 	ImgURL   string    `json:"img_url" db:"img_url"`
 

@@ -1,8 +1,11 @@
 package actions
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/gobuffalo/buffalo"
 	"github.com/gobuffalo/pop/v6"
@@ -11,6 +14,45 @@ import (
 	"backend_server/models"
 	"backend_server/storage"
 )
+
+var (
+	nonAlphanumericRegex = regexp.MustCompile(`[^a-z0-9\s-]`)
+	whitespaceRegex      = regexp.MustCompile(`[\s_]+`)
+	multipleHyphenRegex  = regexp.MustCompile(`-+`)
+)
+
+func Slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = nonAlphanumericRegex.ReplaceAllString(s, "")
+	s = whitespaceRegex.ReplaceAllString(s, "-")
+	s = multipleHyphenRegex.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	if s == "" {
+		s = "article"
+	}
+	return s
+}
+
+func GenerateUniqueSlug(tx *pop.Connection, titleOrSlug string, currentID uuid.UUID) string {
+	baseSlug := Slugify(titleOrSlug)
+	slug := baseSlug
+	counter := 1
+
+	for {
+		q := tx.Where("slug = ?", slug)
+		if currentID != uuid.Nil {
+			q = q.Where("id != ?", currentID)
+		}
+		exists, err := q.Exists(&models.Article{})
+		if err != nil || !exists {
+			break
+		}
+		slug = fmt.Sprintf("%s-%d", baseSlug, counter)
+		counter++
+	}
+
+	return slug
+}
 
 type ArticlesResource struct {
 	buffalo.Resource
@@ -45,8 +87,17 @@ func (v ArticlesResource) Show(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Database connection not found", nil)
 	}
 
+	param := c.Param("article_id")
 	article := &models.Article{}
-	if err := tx.Find(article, c.Param("article_id")); err != nil {
+	var err error
+
+	if _, parseErr := uuid.FromString(param); parseErr == nil {
+		err = tx.Find(article, param)
+	} else {
+		err = tx.Where("slug = ?", param).First(article)
+	}
+
+	if err != nil {
 		return Response(c, http.StatusNotFound, "Article not found", nil)
 	}
 
@@ -72,6 +123,13 @@ func (v ArticlesResource) Create(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Database connection not found", nil)
 	}
 
+	// Generate SEO-friendly unique slug
+	if article.Slug != "" {
+		article.Slug = GenerateUniqueSlug(tx, article.Slug, uuid.Nil)
+	} else {
+		article.Slug = GenerateUniqueSlug(tx, article.Title, uuid.Nil)
+	}
+
 	verrs, err := tx.ValidateAndCreate(article)
 	if err != nil {
 		return Response(c, http.StatusInternalServerError, "Failed to create article", err.Error())
@@ -89,8 +147,17 @@ func (v ArticlesResource) Update(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Database connection not found", nil)
 	}
 
+	param := c.Param("article_id")
 	article := &models.Article{}
-	if err := tx.Find(article, c.Param("article_id")); err != nil {
+	var err error
+
+	if _, parseErr := uuid.FromString(param); parseErr == nil {
+		err = tx.Find(article, param)
+	} else {
+		err = tx.Where("slug = ?", param).First(article)
+	}
+
+	if err != nil {
 		return Response(c, http.StatusNotFound, "Article not found", nil)
 	}
 
@@ -111,9 +178,18 @@ func (v ArticlesResource) Update(c buffalo.Context) error {
 		}
 	}
 
+	// Update slug if explicitly provided or if title changed
+	if input.Slug != "" && input.Slug != article.Slug {
+		article.Slug = GenerateUniqueSlug(tx, input.Slug, article.ID)
+	} else if input.Title != "" && input.Title != article.Title && input.Slug == "" {
+		article.Slug = GenerateUniqueSlug(tx, input.Title, article.ID)
+	}
+
 	article.Category = input.Category
 	article.IsActive = input.IsActive
-	article.Title = input.Title
+	if input.Title != "" {
+		article.Title = input.Title
+	}
 	article.Value = input.Value
 	article.ImgURL = input.ImgURL
 
@@ -134,8 +210,17 @@ func (v ArticlesResource) Destroy(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Database connection not found", nil)
 	}
 
+	param := c.Param("article_id")
 	article := &models.Article{}
-	if err := tx.Find(article, c.Param("article_id")); err != nil {
+	var err error
+
+	if _, parseErr := uuid.FromString(param); parseErr == nil {
+		err = tx.Find(article, param)
+	} else {
+		err = tx.Where("slug = ?", param).First(article)
+	}
+
+	if err != nil {
 		return Response(c, http.StatusNotFound, "Article not found", nil)
 	}
 

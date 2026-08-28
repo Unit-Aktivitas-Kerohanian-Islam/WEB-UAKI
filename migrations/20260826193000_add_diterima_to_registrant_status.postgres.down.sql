@@ -1,0 +1,1 @@
+-- PostgreSQL tidak mendukung DROP VALUE dari ENUM secara langsung tanpa re-create type

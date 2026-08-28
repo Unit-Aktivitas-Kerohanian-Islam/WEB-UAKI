@@ -208,7 +208,8 @@
                   "organization_exp": { "type": "string", "description": "Riwayat Organisasi" },
                   "commitment": { "type": "string", "description": "Deskripsi komitmen di UAKI" },
                   "cv_url": { "type": "string", "description": "URL dari endpoint upload CV" },
-                  "twibbon_url": { "type": "string", "description": "URL dari endpoint upload Twibbon" }
+                  "twibbon_url": { "type": "string", "description": "URL dari endpoint upload Twibbon" },
+                  "portofolio_url": { "type": "string", "description": "URL dari endpoint upload Portofolio (Khusus Departemen CM)" }
                 }
               }
             }
@@ -220,8 +221,8 @@
     "/registrants/file": {
       "post": {
         "tags": ["Registrants (Self)"],
-        "summary": "Upload Berkas (CV & Twibbon Sekaligus / Terpisah)",
-        "description": "Digunakan oleh pendaftar untuk mengunggah CV (.pdf) dan/atau Twibbon (.jpg/.png/.webp). Dapat mengirim salah satu atau kedua file sekaligus dalam satu request.",
+        "summary": "Upload Berkas (CV, Twibbon, Portofolio)",
+        "description": "Digunakan oleh pendaftar untuk mengunggah CV (.pdf), Twibbon (.jpg/.png/.webp), dan/atau Portofolio (.pdf). Dapat mengirim salah satu atau ketiga file sekaligus dalam satu request.",
         "requestBody": {
           "required": true,
           "content": {
@@ -229,14 +230,15 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "cv": { "type": "string", "format": "binary", "description": "Format file .pdf, maksimal 5 MB" },
-                  "twibbon": { "type": "string", "format": "binary", "description": "Format file .jpg, .jpeg, .png, .webp, maksimal 5 MB" }
+                  "cv": { "type": "string", "format": "binary", "description": "Format file .pdf, maksimal 10 MB" },
+                  "twibbon": { "type": "string", "format": "binary", "description": "Format file .jpg, .jpeg, .png, .webp, maksimal 5 MB" },
+                  "portofolio": { "type": "string", "format": "binary", "description": "Format file .pdf, maksimal 10 MB (Khusus Departemen CM)" }
                 }
               }
             }
           }
         },
-        "responses": { "200": { "description": "Berkas sukses diupload, mengembalikan cv_url dan/atau twibbon_url" } }
+        "responses": { "200": { "description": "Berkas sukses diupload, mengembalikan cv_url, twibbon_url, dan/atau portofolio_url" } }
       }
     },
     "/registrants": {
@@ -287,7 +289,7 @@
                 "properties": {
                   "status": { 
                     "type": "string", 
-                    "enum": ["PENDING", "LOLOS_BERKAS", "DITOLAK"],
+                    "enum": ["PENDING", "LOLOS_BERKAS", "DITERIMA", "DITOLAK"],
                     "description": "Status kelulusan terkini"
                   }
                 }
@@ -361,6 +363,7 @@
                 "properties": {
                   "category": { "type": "string", "enum": ["islam", "umum", "informasi"], "description": "Kategori sesuai tipe ENUM di database" },
                   "title": { "type": "string" },
+                  "slug": { "type": "string", "description": "Slug URL SEO-friendly (Opsional, otomatis di-generate jika kosong)" },
                   "value": { "type": "string", "description": "Isi/Body artikel dalam bentuk string HTML atau Markdown" },
                   "img_url": { "type": "string", "description": "URL gambar header artikel" },
                   "is_active": { "type": "boolean", "default": true }
@@ -396,9 +399,10 @@
       "get": {
         "tags": ["Articles"],
         "summary": "Detail Artikel (Publik)",
+        "description": "Mengambil detail artikel berdasarkan UUID atau Slug URL (contoh: /articles/tips-sukses-kuliah).",
         "security": [],
         "parameters": [
-          { "name": "article_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+          { "name": "article_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "UUID atau Slug Artikel" }
         ],
         "responses": { "200": { "description": "Detail artikel" } }
       },
@@ -406,7 +410,7 @@
         "tags": ["Articles (Admin)"],
         "summary": "Update Artikel",
         "parameters": [
-          { "name": "article_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+          { "name": "article_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "UUID atau Slug Artikel" }
         ],
         "requestBody": {
           "required": true,
@@ -417,6 +421,7 @@
                 "properties": {
                   "category": { "type": "string", "enum": ["islam", "umum", "informasi"] },
                   "title": { "type": "string" },
+                  "slug": { "type": "string", "description": "Slug URL kustom baru (Opsional)" },
                   "value": { "type": "string" },
                   "img_url": { "type": "string" },
                   "is_active": { "type": "boolean" }
@@ -431,7 +436,7 @@
         "tags": ["Articles (Admin)"],
         "summary": "Hapus Artikel",
         "parameters": [
-          { "name": "article_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+          { "name": "article_id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "UUID atau Slug Artikel" }
         ],
         "responses": { "200": { "description": "Artikel terhapus" } }
       }

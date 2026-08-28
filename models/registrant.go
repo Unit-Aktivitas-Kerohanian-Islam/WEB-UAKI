@@ -36,6 +36,7 @@ type Registrant struct {
 	Commitment      nulls.String `json:"commitment" db:"commitment"`
 	CvUrl           nulls.String `json:"cv_url" db:"cv_url"`
 	TwibbonUrl      nulls.String `json:"twibbon_url" db:"twibbon_url"`
+	PortofolioUrl   nulls.String `json:"portofolio_url" db:"portofolio_url"`
 	Status          string       `json:"status" db:"status"` 
 	
 	// Jadwal Screening

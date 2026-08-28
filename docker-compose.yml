@@ -26,7 +26,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
-      DB_HOST: db 
+      DB_HOST: db
       ADDR: 0.0.0.0
     volumes:
       - ./public/uploads:/app/public/uploads

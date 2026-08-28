@@ -2,11 +2,14 @@ package grifts
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"backend_server/models"
 
 	"github.com/gobuffalo/grift/grift"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var _ = grift.Namespace("db", func() {
@@ -20,9 +23,30 @@ var _ = grift.Namespace("db", func() {
 		}
 
 		if count == 0 {
+			email := strings.TrimSpace(os.Getenv("SUPERADMIN_EMAIL"))
+			if email == "" {
+				return fmt.Errorf("SUPERADMIN_EMAIL environment variable is not set")
+			}
+
+			rawPassword := strings.TrimSpace(os.Getenv("SUPERADMIN_PASSWORD"))
+			if rawPassword == "" {
+				return fmt.Errorf("SUPERADMIN_PASSWORD environment variable is not set")
+			}
+
+			var hashedPassword string
+			if strings.HasPrefix(rawPassword, "$2a$") || strings.HasPrefix(rawPassword, "$2b$") || strings.HasPrefix(rawPassword, "$2y$") {
+				hashedPassword = rawPassword
+			} else {
+				bytes, err := bcrypt.GenerateFromPassword([]byte(rawPassword), bcrypt.DefaultCost)
+				if err != nil {
+					return fmt.Errorf("gagal melakukan hash password superadmin: %v", err)
+				}
+				hashedPassword = string(bytes)
+			}
+
 			admin := &models.Admin{
-				Email:        "admin@uaki.ub.ac.id",
-				Password:     "$2a$10$xiQGxfPAgcbjxWcXoXhczegziU8VqD34PQXk/He5b.u9qhbrpQcIW",
+				Email:        email,
+				Password:     hashedPassword,
 				IsSuperAdmin: true,
 				IsActive:     true,
 				LastLogin:    time.Now(),
@@ -33,9 +57,9 @@ var _ = grift.Namespace("db", func() {
 				return fmt.Errorf("gagal membuat seed admin: %v", err)
 			}
 			
-			fmt.Println("✅ Berhasil: Akun Super Admin (admin@uaki.ub.ac.id) telah dibuat!")
+			fmt.Println("Berhasil: Akun Super Admin telah dibuat!")
 		} else {
-			fmt.Println("⚠️ Dilewati: Tabel admins sudah memiliki data, seed dibatalkan.")
+			fmt.Println("Dilewati: Tabel admins sudah memiliki data, seed dibatalkan.")
 		}
 
 		return nil
