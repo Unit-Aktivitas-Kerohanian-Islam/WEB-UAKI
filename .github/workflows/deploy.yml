@@ -102,7 +102,7 @@ jobs:
             cd /home/${{ secrets.VPS_USER }}/WEB-UAKI
             echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
             export BACKEND_IMAGE_TAG="ghcr.io/${REPO_LOWER}:latest"
-            docker compose -f proud.docker-compose.yml pull
+            docker compose -f proud.docker-compose.yml pull app
             docker compose -f proud.docker-compose.yml up -d --build
             docker image prune -f
             docker compose -f proud.docker-compose.yml ps
