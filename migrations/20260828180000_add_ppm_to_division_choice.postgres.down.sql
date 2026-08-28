@@ -1,0 +1,2 @@
+-- PostgreSQL does not natively support removing an enum value from an enum type without recreating it.
+-- Rollback placeholder for adding PPM to division_choice enum.
