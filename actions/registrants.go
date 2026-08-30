@@ -41,6 +41,17 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 
 	registrants := &models.Registrants{}
 	q := tx.PaginateFromParams(c.Params())
+
+	// Hanya tampilkan data pendaftar yang sudah mengirimkan form pendaftaran
+	q = q.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != ''")
+
+	// Dukung filter status jika diberikan via query parameter
+	if status := strings.TrimSpace(c.Param("status")); status != "" && strings.ToUpper(status) != "ALL" {
+		q = q.Where("status = ?", strings.ToUpper(status))
+	}
+
+	q = q.Order("created_at DESC")
+
 	if err := q.All(registrants); err != nil {
 		return Response(c, http.StatusInternalServerError, "Failed to retrieve data", err.Error())
 	}

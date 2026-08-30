@@ -245,10 +245,11 @@
       "get": {
         "tags": ["Registrants (Admin)"],
         "summary": "List Pendaftar",
-        "description": "Menampilkan daftar seluruh pendaftar. Akses dibatasi untuk role admin. Mendukung pagination.",
+        "description": "Menampilkan daftar seluruh pendaftar yang sudah mengirimkan formulir pendaftaran. Akses dibatasi untuk role admin. Mendukung pagination dan filter status.",
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20 } }
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["ALL", "PENDING", "LOLOS_BERKAS", "DITERIMA", "DITOLAK"], "default": "ALL" } }
         ],
         "responses": { "200": { "description": "List data pendaftar berhasil diambil" } }
       }
