@@ -42,9 +42,6 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	registrants := &models.Registrants{}
 	q := PaginateFromContext(tx, c)
 
-	// Hanya tampilkan data pendaftar yang sudah mengirimkan form pendaftaran
-	q = q.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != ''")
-
 	// Filter pencarian teks
 	search := strings.TrimSpace(c.Param("search"))
 	if search == "" {
@@ -52,12 +49,16 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	}
 	if search != "" {
 		searchPattern := "%" + search + "%"
-		q = q.Where("(LOWER(name) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?) OR LOWER(nim) LIKE LOWER(?) OR LOWER(prodi) LIKE LOWER(?) OR LOWER(fakultas) LIKE LOWER(?))", searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
+		q = q.Where("(LOWER(COALESCE(name, '')) LIKE LOWER(?) OR LOWER(COALESCE(email, '')) LIKE LOWER(?) OR LOWER(COALESCE(nim, '')) LIKE LOWER(?) OR LOWER(COALESCE(prodi, '')) LIKE LOWER(?) OR LOWER(COALESCE(fakultas, '')) LIKE LOWER(?))", searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
 	}
 
 	// Dukung filter status jika diberikan via query parameter
 	if status := strings.TrimSpace(c.Param("status")); status != "" && strings.ToUpper(status) != "ALL" {
-		q = q.Where("status = ?", strings.ToUpper(status))
+		if strings.ToUpper(status) == "PENDING" {
+			q = q.Where("(status = 'PENDING' OR status IS NULL OR status = '')")
+		} else {
+			q = q.Where("status = ?", strings.ToUpper(status))
+		}
 	}
 
 	// Dukung filter divisi jika diberikan via query parameter
@@ -75,11 +76,11 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 		(*registrants)[i].Password = nulls.NewString("")
 	}
 
-	lolosCount, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != '' AND status = 'LOLOS_BERKAS'").Count(&models.Registrants{})
-	diterimaCount, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != '' AND status = 'DITERIMA'").Count(&models.Registrants{})
-	ditolakCount, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != '' AND status = 'DITOLAK'").Count(&models.Registrants{})
-	pendingCount, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != '' AND (status = 'PENDING' OR status IS NULL OR status = '')").Count(&models.Registrants{})
-	totalAll, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != ''").Count(&models.Registrants{})
+	lolosCount, _ := tx.Where("status = 'LOLOS_BERKAS'").Count(&models.Registrants{})
+	diterimaCount, _ := tx.Where("status = 'DITERIMA'").Count(&models.Registrants{})
+	ditolakCount, _ := tx.Where("status = 'DITOLAK'").Count(&models.Registrants{})
+	pendingCount, _ := tx.Where("status = 'PENDING' OR status IS NULL OR status = ''").Count(&models.Registrants{})
+	totalAll, _ := tx.Count(&models.Registrants{})
 
 	return Response(c, http.StatusOK, "Success", map[string]interface{}{
 		"data":       registrants,
