@@ -100,10 +100,19 @@ func (v ArticlesResource) List(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Failed to retrieve articles", nil)
 	}
 
+	activeCount, _ := tx.Where("is_active = true").Count(&models.Articles{})
+	inactiveCount, _ := tx.Where("is_active = false").Count(&models.Articles{})
+	totalArticles, _ := tx.Count(&models.Articles{})
+
 	return Response(c, http.StatusOK, "Articles retrieved successfully", map[string]interface{}{
 		"articles":   articles,
 		"data":       articles,
 		"pagination": q.Paginator,
+		"summary": map[string]interface{}{
+			"total":    totalArticles,
+			"active":   activeCount,
+			"inactive": inactiveCount,
+		},
 	})
 }
 

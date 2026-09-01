@@ -67,11 +67,20 @@ func (v AdminsResource) List(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, err.Error(), nil)
 	}
 
+	activeCount, _ := tx.Where("is_active = true").Count(&models.Admins{})
+	inactiveCount, _ := tx.Where("is_active = false").Count(&models.Admins{})
+	totalAdmins, _ := tx.Count(&models.Admins{})
+
 	// Kembalikan response JSON menggunakan fungsi Response
 	return Response(c, http.StatusOK, "Admins retrieved successfully", map[string]interface{}{
 		"admins":     admins,
 		"data":       admins,
 		"pagination": q.Paginator,
+		"summary": map[string]interface{}{
+			"total":    totalAdmins,
+			"active":   activeCount,
+			"inactive": inactiveCount,
+		},
 	})
 }
 

@@ -75,9 +75,22 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 		(*registrants)[i].Password = nulls.NewString("")
 	}
 
+	lolosCount, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != '' AND status = 'LOLOS_BERKAS'").Count(&models.Registrants{})
+	diterimaCount, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != '' AND status = 'DITERIMA'").Count(&models.Registrants{})
+	ditolakCount, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != '' AND status = 'DITOLAK'").Count(&models.Registrants{})
+	pendingCount, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != '' AND (status = 'PENDING' OR status IS NULL OR status = '')").Count(&models.Registrants{})
+	totalAll, _ := tx.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != ''").Count(&models.Registrants{})
+
 	return Response(c, http.StatusOK, "Success", map[string]interface{}{
 		"data":       registrants,
 		"pagination": q.Paginator,
+		"summary": map[string]interface{}{
+			"total":        totalAll,
+			"lolos_berkas": lolosCount,
+			"pending":      pendingCount,
+			"diterima":     diterimaCount,
+			"ditolak":      ditolakCount,
+		},
 	})
 }
 
