@@ -43,7 +43,7 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	q := PaginateFromContext(tx, c)
 
 	// Hanya tampilkan data pendaftar yang sudah submit form pendaftaran (memiliki pilihan divisi)
-	baseCondition := "division_1 IS NOT NULL AND TRIM(division_1) != ''"
+	baseCondition := "division_1 IS NOT NULL"
 	q = q.Where(baseCondition)
 
 	// Filter pencarian teks
