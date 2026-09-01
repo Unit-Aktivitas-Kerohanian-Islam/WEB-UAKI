@@ -72,13 +72,39 @@ func (v ArticlesResource) List(c buffalo.Context) error {
 	}
 
 	articles := &models.Articles{}
-	q := tx.PaginateFromParams(c.Params())
+	q := PaginateFromContext(tx, c)
+
+	search := strings.TrimSpace(c.Param("search"))
+	if search == "" {
+		search = strings.TrimSpace(c.Param("q"))
+	}
+	if search != "" {
+		q = q.Where("LOWER(title) LIKE LOWER(?) OR LOWER(value) LIKE LOWER(?)", "%"+search+"%", "%"+search+"%")
+	}
+
+	if category := strings.TrimSpace(c.Param("category")); category != "" && strings.ToLower(category) != "all" && strings.ToLower(category) != "semua" {
+		q = q.Where("LOWER(category) = LOWER(?)", category)
+	}
+
+	if status := strings.TrimSpace(c.Param("status")); status != "" {
+		if status == "active" || status == "true" {
+			q = q.Where("is_active = ?", true)
+		} else if status == "inactive" || status == "false" {
+			q = q.Where("is_active = ?", false)
+		}
+	}
+
+	q = q.Order("created_at DESC")
 
 	if err := q.All(articles); err != nil {
 		return Response(c, http.StatusInternalServerError, "Failed to retrieve articles", nil)
 	}
 
-	return Response(c, http.StatusOK, "Articles retrieved successfully", articles)
+	return Response(c, http.StatusOK, "Articles retrieved successfully", map[string]interface{}{
+		"articles":   articles,
+		"data":       articles,
+		"pagination": q.Paginator,
+	})
 }
 
 func (v ArticlesResource) Show(c buffalo.Context) error {

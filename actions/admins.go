@@ -3,6 +3,7 @@ package actions
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gobuffalo/buffalo"
@@ -42,21 +43,35 @@ func (v AdminsResource) List(c buffalo.Context) error {
 	admins := &models.Admins{}
 
 	// Pagination
-	q := tx.PaginateFromParams(c.Params())
+	q := PaginateFromContext(tx, c)
+
+	search := strings.TrimSpace(c.Param("search"))
+	if search == "" {
+		search = strings.TrimSpace(c.Param("q"))
+	}
+	if search != "" {
+		q = q.Where("LOWER(email) LIKE LOWER(?)", "%"+search+"%")
+	}
+
+	status := strings.TrimSpace(c.Param("status"))
+	if status == "active" || status == "true" {
+		q = q.Where("is_active = ?", true)
+	} else if status == "inactive" || status == "false" {
+		q = q.Where("is_active = ?", false)
+	}
+
+	q = q.Order("created_at DESC")
 
 	// Ambil semua data Admins dari database
 	if err := q.All(admins); err != nil {
 		return Response(c, http.StatusInternalServerError, err.Error(), nil)
 	}
 
-	// Jika datanya kosong, beri pesan berbeda
-	if len(*admins) == 0 {
-		return Response(c, http.StatusOK, "No admins found", []interface{}{})
-	}
-
 	// Kembalikan response JSON menggunakan fungsi Response
 	return Response(c, http.StatusOK, "Admins retrieved successfully", map[string]interface{}{
 		"admins":     admins,
+		"data":       admins,
+		"pagination": q.Paginator,
 	})
 }
 

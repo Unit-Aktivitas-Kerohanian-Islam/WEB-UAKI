@@ -40,14 +40,29 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	}
 
 	registrants := &models.Registrants{}
-	q := tx.PaginateFromParams(c.Params())
+	q := PaginateFromContext(tx, c)
 
 	// Hanya tampilkan data pendaftar yang sudah mengirimkan form pendaftaran
 	q = q.Where("division_1 IS NOT NULL AND nim IS NOT NULL AND TRIM(nim) != ''")
 
+	// Filter pencarian teks
+	search := strings.TrimSpace(c.Param("search"))
+	if search == "" {
+		search = strings.TrimSpace(c.Param("q"))
+	}
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		q = q.Where("(LOWER(name) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?) OR LOWER(nim) LIKE LOWER(?) OR LOWER(prodi) LIKE LOWER(?) OR LOWER(fakultas) LIKE LOWER(?))", searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
+	}
+
 	// Dukung filter status jika diberikan via query parameter
 	if status := strings.TrimSpace(c.Param("status")); status != "" && strings.ToUpper(status) != "ALL" {
 		q = q.Where("status = ?", strings.ToUpper(status))
+	}
+
+	// Dukung filter divisi jika diberikan via query parameter
+	if division := strings.TrimSpace(c.Param("division")); division != "" && strings.ToUpper(division) != "ALL" {
+		q = q.Where("(division_1 = ? OR division_2 = ?)", division, division)
 	}
 
 	q = q.Order("created_at DESC")

@@ -2,6 +2,7 @@ package actions
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gobuffalo/buffalo"
 	"github.com/gobuffalo/pop/v6"
@@ -35,7 +36,17 @@ func (v MediaCategoriesResource) List(c buffalo.Context) error {
 	}
 
 	mediaCategories := &models.MediaCategories{}
-	q := tx.PaginateFromParams(c.Params())
+	q := PaginateFromContext(tx, c)
+
+	search := strings.TrimSpace(c.Param("search"))
+	if search == "" {
+		search = strings.TrimSpace(c.Param("q"))
+	}
+	if search != "" {
+		q = q.Where("LOWER(name) LIKE LOWER(?)", "%"+search+"%")
+	}
+
+	q = q.Order("name ASC")
 
 	if err := q.All(mediaCategories); err != nil {
 		return Response(c, http.StatusInternalServerError, "failed to fetch media categories", err.Error())
@@ -43,6 +54,7 @@ func (v MediaCategoriesResource) List(c buffalo.Context) error {
 
 	return Response(c, http.StatusOK, "success", map[string]interface{}{
 		"data":       mediaCategories,
+		"pagination": q.Paginator,
 	})
 }
 

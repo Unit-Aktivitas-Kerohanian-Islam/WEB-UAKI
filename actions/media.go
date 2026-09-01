@@ -3,6 +3,7 @@ package actions
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gobuffalo/buffalo"
 	"github.com/gobuffalo/pop/v6"
@@ -30,7 +31,21 @@ func (v MediaResource) List(c buffalo.Context) error {
 	}
 
 	media := &[]models.Media{}
-	q := tx.PaginateFromParams(c.Params())
+	q := PaginateFromContext(tx, c)
+
+	search := strings.TrimSpace(c.Param("search"))
+	if search == "" {
+		search = strings.TrimSpace(c.Param("q"))
+	}
+	if search != "" {
+		q = q.Where("LOWER(title) LIKE LOWER(?)", "%"+search+"%")
+	}
+
+	if categoryID := strings.TrimSpace(c.Param("category_id")); categoryID != "" && categoryID != "0" && strings.ToUpper(categoryID) != "ALL" && strings.ToLower(categoryID) != "semua" {
+		q = q.Where("category_id = ?", categoryID)
+	}
+
+	q = q.Order("created_at DESC")
 
 	if err := q.All(media); err != nil {
 		return Response(c, http.StatusInternalServerError, "failed to retrieve media", err.Error())
@@ -38,6 +53,7 @@ func (v MediaResource) List(c buffalo.Context) error {
 
 	return Response(c, http.StatusOK, "success", map[string]interface{}{
 		"media":      media,
+		"data":       media,
 		"pagination": q.Paginator,
 	})
 }
