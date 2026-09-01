@@ -76,11 +76,14 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 		(*registrants)[i].Password = nulls.NewString("")
 	}
 
-	lolosCount, _ := tx.Where("status = 'LOLOS_BERKAS'").Count(&models.Registrants{})
-	diterimaCount, _ := tx.Where("status = 'DITERIMA'").Count(&models.Registrants{})
-	ditolakCount, _ := tx.Where("status = 'DITOLAK'").Count(&models.Registrants{})
-	pendingCount, _ := tx.Where("status = 'PENDING' OR status IS NULL OR status = ''").Count(&models.Registrants{})
-	totalAll, _ := tx.Count(&models.Registrants{})
+	lolosCount, _ := tx.Where("status = ?", "LOLOS_BERKAS").Count(&models.Registrant{})
+	diterimaCount, _ := tx.Where("status = ?", "DITERIMA").Count(&models.Registrant{})
+	ditolakCount, _ := tx.Where("status = ?", "DITOLAK").Count(&models.Registrant{})
+	pendingCount, _ := tx.Where("status = ? OR status IS NULL OR status = ''", "PENDING").Count(&models.Registrant{})
+	totalAll := q.Paginator.TotalEntriesSize
+	if totalAll == 0 {
+		totalAll, _ = tx.Count(&models.Registrant{})
+	}
 
 	return Response(c, http.StatusOK, "Success", map[string]interface{}{
 		"data":       registrants,

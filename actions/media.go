@@ -51,7 +51,10 @@ func (v MediaResource) List(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "failed to retrieve media", err.Error())
 	}
 
-	totalMedia, _ := tx.Count(&[]models.Media{})
+	totalMedia := q.Paginator.TotalEntriesSize
+	if totalMedia == 0 {
+		totalMedia, _ = tx.Count(&models.Media{})
+	}
 
 	return Response(c, http.StatusOK, "success", map[string]interface{}{
 		"media":      media,
