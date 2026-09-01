@@ -42,6 +42,10 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	registrants := &models.Registrants{}
 	q := PaginateFromContext(tx, c)
 
+	// Hanya tampilkan data pendaftar yang sudah submit form pendaftaran (memiliki pilihan divisi)
+	baseCondition := "division_1 IS NOT NULL AND TRIM(division_1) != ''"
+	q = q.Where(baseCondition)
+
 	// Filter pencarian teks
 	search := strings.TrimSpace(c.Param("search"))
 	if search == "" {
@@ -53,7 +57,8 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	}
 
 	// Dukung filter status jika diberikan via query parameter
-	if status := strings.TrimSpace(c.Param("status")); status != "" && strings.ToUpper(status) != "ALL" {
+	status := strings.TrimSpace(c.Param("status"))
+	if status != "" && strings.ToUpper(status) != "ALL" {
 		if strings.ToUpper(status) == "PENDING" {
 			q = q.Where("(status = 'PENDING' OR status IS NULL OR status = '')")
 		} else {
@@ -62,7 +67,8 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	}
 
 	// Dukung filter divisi jika diberikan via query parameter
-	if division := strings.TrimSpace(c.Param("division")); division != "" && strings.ToUpper(division) != "ALL" {
+	division := strings.TrimSpace(c.Param("division"))
+	if division != "" && strings.ToUpper(division) != "ALL" {
 		q = q.Where("(division_1 = ? OR division_2 = ?)", division, division)
 	}
 
@@ -76,20 +82,21 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 		(*registrants)[i].Password = nulls.NewString("")
 	}
 
-	lolosCount, _ := tx.Where("status = ?", "LOLOS_BERKAS").Count(&models.Registrant{})
-	diterimaCount, _ := tx.Where("status = ?", "DITERIMA").Count(&models.Registrant{})
-	ditolakCount, _ := tx.Where("status = ?", "DITOLAK").Count(&models.Registrant{})
-	pendingCount, _ := tx.Where("status = ? OR status IS NULL OR status = ''", "PENDING").Count(&models.Registrant{})
+	lolosCount, _ := tx.Where(baseCondition + " AND status = ?", "LOLOS_BERKAS").Count(&models.Registrant{})
+	diterimaCount, _ := tx.Where(baseCondition + " AND status = ?", "DITERIMA").Count(&models.Registrant{})
+	ditolakCount, _ := tx.Where(baseCondition + " AND status = ?", "DITOLAK").Count(&models.Registrant{})
+	pendingCount, _ := tx.Where(baseCondition + " AND (status = ? OR status IS NULL OR status = '')", "PENDING").Count(&models.Registrant{})
+	totalSubmitted, _ := tx.Where(baseCondition).Count(&models.Registrant{})
 	totalAll := q.Paginator.TotalEntriesSize
-	if totalAll == 0 {
-		totalAll, _ = tx.Count(&models.Registrant{})
+	if totalAll == 0 && search == "" && (status == "" || strings.ToUpper(status) == "ALL") && (division == "" || strings.ToUpper(division) == "ALL") {
+		totalAll = totalSubmitted
 	}
 
 	return Response(c, http.StatusOK, "Success", map[string]interface{}{
 		"data":       registrants,
 		"pagination": q.Paginator,
 		"summary": map[string]interface{}{
-			"total":        totalAll,
+			"total":        totalSubmitted,
 			"lolos_berkas": lolosCount,
 			"pending":      pendingCount,
 			"diterima":     diterimaCount,
