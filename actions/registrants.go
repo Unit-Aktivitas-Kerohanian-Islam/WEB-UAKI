@@ -59,11 +59,7 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	// Dukung filter status jika diberikan via query parameter
 	status := strings.TrimSpace(c.Param("status"))
 	if status != "" && strings.ToUpper(status) != "ALL" {
-		if strings.ToUpper(status) == "PENDING" {
-			q = q.Where("(status = 'PENDING' OR status IS NULL OR status = '')")
-		} else {
-			q = q.Where("status = ?", strings.ToUpper(status))
-		}
+		q = q.Where("status = ?", strings.ToUpper(status))
 	}
 
 	// Dukung filter divisi jika diberikan via query parameter
@@ -85,7 +81,7 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	lolosCount, _ := tx.Where(baseCondition + " AND status = ?", "LOLOS_BERKAS").Count(&models.Registrant{})
 	diterimaCount, _ := tx.Where(baseCondition + " AND status = ?", "DITERIMA").Count(&models.Registrant{})
 	ditolakCount, _ := tx.Where(baseCondition + " AND status = ?", "DITOLAK").Count(&models.Registrant{})
-	pendingCount, _ := tx.Where(baseCondition + " AND (status = ? OR status IS NULL OR status = '')", "PENDING").Count(&models.Registrant{})
+	pendingCount, _ := tx.Where(baseCondition + " AND status = ?", "PENDING").Count(&models.Registrant{})
 	totalSubmitted, _ := tx.Where(baseCondition).Count(&models.Registrant{})
 	totalAll := q.Paginator.TotalEntriesSize
 	if totalAll == 0 && search == "" && (status == "" || strings.ToUpper(status) == "ALL") && (division == "" || strings.ToUpper(division) == "ALL") {
