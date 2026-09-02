@@ -351,6 +351,33 @@ func (v RegistrantsResource) Export(c buffalo.Context) error {
 	return err
 }
 
+func (v RegistrantsResource) SyncAllToSheet(c buffalo.Context) error {
+	tx, ok := c.Value("tx").(*pop.Connection)
+	if !ok {
+		return Response(c, http.StatusInternalServerError, "Database error", nil)
+	}
+
+	webhookURL := strings.TrimSpace(os.Getenv("GOOGLE_SHEET_WEBHOOK_URL"))
+	if webhookURL == "" {
+		return Response(c, http.StatusBadRequest, "GOOGLE_SHEET_WEBHOOK_URL belum diatur di file .env backend", nil)
+	}
+
+	registrants := &models.Registrants{}
+	q := tx.Where("division_1 IS NOT NULL").Order("created_at ASC")
+	if err := q.All(registrants); err != nil {
+		return Response(c, http.StatusInternalServerError, "Gagal mengambil data pendaftar", err.Error())
+	}
+
+	go func(list []models.Registrant) {
+		for _, reg := range list {
+			syncToGoogleSheet(reg)
+			time.Sleep(300 * time.Millisecond)
+		}
+	}(*registrants)
+
+	return Response(c, http.StatusOK, fmt.Sprintf("Sedang menyinkronkan %d pendaftar ke Google Sheet di latar belakang", len(*registrants)), nil)
+}
+
 func (v RegistrantsResource) Show(c buffalo.Context) error {
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
