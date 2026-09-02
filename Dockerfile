@@ -1,4 +1,4 @@
-FROM golang:alpine AS builder
+FROM golang:1.23-alpine AS builder
 RUN apk add --no-cache git bash build-base
 ENV GOPROXY=https://proxy.golang.org,direct
 WORKDIR /src/WEB_UAKI
