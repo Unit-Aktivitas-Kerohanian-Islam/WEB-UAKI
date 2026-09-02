@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/gobuffalo/nulls"
 	"github.com/gobuffalo/pop/v6"
 	"github.com/google/uuid"
+	"github.com/xuri/excelize/v2"
 	"golang.org/x/crypto/bcrypt"
 
 	"backend_server/models"
@@ -99,6 +101,254 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 			"ditolak":      ditolakCount,
 		},
 	})
+}
+
+func (v RegistrantsResource) Export(c buffalo.Context) error {
+	tx, ok := c.Value("tx").(*pop.Connection)
+	if !ok {
+		return Response(c, http.StatusInternalServerError, "Database error", nil)
+	}
+
+	registrants := &models.Registrants{}
+	q := tx.Q()
+
+	// Hanya tampilkan data pendaftar yang sudah submit form pendaftaran (memiliki pilihan divisi)
+	baseCondition := "division_1 IS NOT NULL"
+	q = q.Where(baseCondition)
+
+	// Filter pencarian teks jika diberikan
+	search := strings.TrimSpace(c.Param("search"))
+	if search == "" {
+		search = strings.TrimSpace(c.Param("q"))
+	}
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		q = q.Where("(LOWER(COALESCE(name, '')) LIKE LOWER(?) OR LOWER(COALESCE(email, '')) LIKE LOWER(?) OR LOWER(COALESCE(nim, '')) LIKE LOWER(?) OR LOWER(COALESCE(prodi, '')) LIKE LOWER(?) OR LOWER(COALESCE(fakultas, '')) LIKE LOWER(?))", searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
+	}
+
+	// Dukung filter status jika diberikan via query parameter
+	status := strings.TrimSpace(c.Param("status"))
+	if status != "" && strings.ToUpper(status) != "ALL" {
+		q = q.Where("status = ?", strings.ToUpper(status))
+	}
+
+	// Dukung filter divisi jika diberikan via query parameter
+	division := strings.TrimSpace(c.Param("division"))
+	if division != "" && strings.ToUpper(division) != "ALL" {
+		q = q.Where("(division_1 = ? OR division_2 = ?)", division, division)
+	}
+
+	q = q.Order("created_at ASC")
+
+	if err := q.All(registrants); err != nil {
+		return Response(c, http.StatusInternalServerError, "Gagal mengambil data pendaftar", err.Error())
+	}
+
+	f := excelize.NewFile()
+	defer f.Close()
+
+	sheetName := "Pendaftar UAKI"
+	defaultSheet := "Sheet1"
+	f.SetSheetName(defaultSheet, sheetName)
+
+	headers := []string{
+		"No",
+		"Nama Lengkap",
+		"Nama Panggilan",
+		"Email SSO UB",
+		"NIM",
+		"Angkatan",
+		"Fakultas",
+		"Program Studi",
+		"Domisili Malang",
+		"Kota Asal",
+		"Asal Sekolah",
+		"Pengalaman Rohis",
+		"No WhatsApp / HP",
+		"Pilihan Divisi 1",
+		"Pilihan Divisi 2",
+		"Kekuatan (Strengths)",
+		"Kelemahan (Weaknesses)",
+		"Peluang (Opportunities)",
+		"Ancaman (Threats)",
+		"Pengalaman Organisasi",
+		"Komitmen & Harapan",
+		"Link CV",
+		"Link Twibbon",
+		"Link Portofolio",
+		"Status Seleksi",
+		"Jadwal Screening",
+		"Lokasi Screening",
+		"Link Screening",
+		"Waktu Pendaftaran",
+	}
+
+	// Set Header Row
+	for colIdx, h := range headers {
+		cellName, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
+		f.SetCellValue(sheetName, cellName, h)
+	}
+
+	// Style Header
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:   true,
+			Color:  "FFFFFF",
+			Size:   11,
+			Family: "Segoe UI",
+		},
+		Fill: excelize.Fill{
+			Type:    "pattern",
+			Color:   []string{"12383B"},
+			Pattern: 1,
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+			WrapText:   true,
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "CBD5E1", Style: 1},
+			{Type: "top", Color: "CBD5E1", Style: 1},
+			{Type: "bottom", Color: "CBD5E1", Style: 1},
+			{Type: "right", Color: "CBD5E1", Style: 1},
+		},
+	})
+	if err == nil {
+		lastColName, _ := excelize.CoordinatesToCellName(len(headers), 1)
+		f.SetCellStyle(sheetName, "A1", lastColName, headerStyle)
+	}
+	f.SetRowHeight(sheetName, 1, 30)
+
+	// Style Data Cells
+	dataStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Size:   10,
+			Family: "Segoe UI",
+		},
+		Alignment: &excelize.Alignment{
+			Vertical: "center",
+			WrapText: true,
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "E2E8F0", Style: 1},
+			{Type: "top", Color: "E2E8F0", Style: 1},
+			{Type: "bottom", Color: "E2E8F0", Style: 1},
+			{Type: "right", Color: "E2E8F0", Style: 1},
+		},
+	})
+
+	centerStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Size:   10,
+			Family: "Segoe UI",
+		},
+		Alignment: &excelize.Alignment{
+			Horizontal: "center",
+			Vertical:   "center",
+		},
+		Border: []excelize.Border{
+			{Type: "left", Color: "E2E8F0", Style: 1},
+			{Type: "top", Color: "E2E8F0", Style: 1},
+			{Type: "bottom", Color: "E2E8F0", Style: 1},
+			{Type: "right", Color: "E2E8F0", Style: 1},
+		},
+	})
+
+	for i, r := range *registrants {
+		rowNum := i + 2
+		rohisExp := "Tidak"
+		if r.HasRohisExp.Valid && r.HasRohisExp.Bool {
+			rohisExp = "Ya"
+		}
+
+		screeningDateStr := "-"
+		if r.ScreeningDate.Valid {
+			screeningDateStr = formatIndonesianDateTime(r.ScreeningDate.Time)
+		}
+
+		createdAtStr := r.CreatedAt.Format("2006-01-02 15:04:05 WIB")
+
+		rowValues := []interface{}{
+			i + 1,
+			r.Name,
+			r.Nickname.String,
+			r.Email,
+			r.NIM.String,
+			r.Angkatan.String,
+			r.Fakultas.String,
+			r.Prodi.String,
+			r.Domicile.String,
+			r.OriginCity.String,
+			r.SchoolOrigin.String,
+			rohisExp,
+			r.Phone.String,
+			r.Division1.String,
+			r.Division2.String,
+			r.SwotS.String,
+			r.SwotW.String,
+			r.SwotO.String,
+			r.SwotT.String,
+			r.OrganizationExp.String,
+			r.Commitment.String,
+			r.CvUrl.String,
+			r.TwibbonUrl.String,
+			r.PortofolioUrl.String,
+			r.Status,
+			screeningDateStr,
+			r.ScreeningLocation.String,
+			r.ScreeningLink.String,
+			createdAtStr,
+		}
+
+		for colIdx, val := range rowValues {
+			cellName, _ := excelize.CoordinatesToCellName(colIdx+1, rowNum)
+			f.SetCellValue(sheetName, cellName, val)
+
+			// Formatting center untuk kolom tertentu
+			if colIdx == 0 || colIdx == 4 || colIdx == 5 || colIdx == 11 || colIdx == 13 || colIdx == 14 || colIdx == 24 {
+				f.SetCellStyle(sheetName, cellName, cellName, centerStyle)
+			} else {
+				f.SetCellStyle(sheetName, cellName, cellName, dataStyle)
+			}
+		}
+		f.SetRowHeight(sheetName, rowNum, 24)
+	}
+
+	// Lebar Kolom
+	f.SetColWidth(sheetName, "A", "A", 6)
+	f.SetColWidth(sheetName, "B", "B", 26)
+	f.SetColWidth(sheetName, "C", "C", 16)
+	f.SetColWidth(sheetName, "D", "D", 28)
+	f.SetColWidth(sheetName, "E", "E", 18)
+	f.SetColWidth(sheetName, "F", "F", 12)
+	f.SetColWidth(sheetName, "G", "G", 26)
+	f.SetColWidth(sheetName, "H", "H", 26)
+	f.SetColWidth(sheetName, "I", "I", 24)
+	f.SetColWidth(sheetName, "J", "J", 20)
+	f.SetColWidth(sheetName, "K", "K", 24)
+	f.SetColWidth(sheetName, "L", "L", 18)
+	f.SetColWidth(sheetName, "M", "M", 20)
+	f.SetColWidth(sheetName, "N", "O", 18)
+	f.SetColWidth(sheetName, "P", "S", 35)
+	f.SetColWidth(sheetName, "T", "U", 40)
+	f.SetColWidth(sheetName, "V", "X", 35)
+	f.SetColWidth(sheetName, "Y", "Y", 18)
+	f.SetColWidth(sheetName, "Z", "AB", 28)
+	f.SetColWidth(sheetName, "AC", "AC", 24)
+
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		return Response(c, http.StatusInternalServerError, "Gagal membuat file excel", err.Error())
+	}
+
+	filename := fmt.Sprintf("pendaftar_uaki_%s.xlsx", time.Now().Format("20060102_150405"))
+	c.Response().Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Response().Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	c.Response().Header().Set("Content-Length", fmt.Sprintf("%d", buf.Len()))
+
+	_, err = c.Response().Write(buf.Bytes())
+	return err
 }
 
 func (v RegistrantsResource) Show(c buffalo.Context) error {
@@ -443,6 +693,11 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 	}
 	if verrs.HasAny() {
 		return Response(c, http.StatusUnprocessableEntity, "Validation error", verrs)
+	}
+
+	// Sinkronisasi otomatis ke Google Sheet jika webhook URL dikonfigurasi dan formulir sudah diisi
+	if registrant.Division1.Valid && strings.TrimSpace(registrant.Division1.String) != "" {
+		go syncToGoogleSheet(*registrant)
 	}
 
 	registrant.Password = nulls.NewString("")
@@ -835,5 +1090,61 @@ func sendScheduleEmailsAsync(targets []models.Registrant, dateStr, location, lin
 		}
 
 		time.Sleep(1 * time.Second)
+	}
+}
+
+func syncToGoogleSheet(registrant models.Registrant) {
+	webhookURL := strings.TrimSpace(os.Getenv("GOOGLE_SHEET_WEBHOOK_URL"))
+	if webhookURL == "" {
+		return
+	}
+
+	payload := map[string]interface{}{
+		"id":               registrant.ID.String(),
+		"name":             registrant.Name,
+		"nickname":         registrant.Nickname.String,
+		"email":            registrant.Email,
+		"nim":              registrant.NIM.String,
+		"angkatan":         registrant.Angkatan.String,
+		"prodi":            registrant.Prodi.String,
+		"fakultas":         registrant.Fakultas.String,
+		"domicile":         registrant.Domicile.String,
+		"origin_city":      registrant.OriginCity.String,
+		"school_origin":    registrant.SchoolOrigin.String,
+		"has_rohis_exp":    registrant.HasRohisExp.Bool,
+		"phone":            registrant.Phone.String,
+		"division_1":       registrant.Division1.String,
+		"division_2":       registrant.Division2.String,
+		"swot_s":           registrant.SwotS.String,
+		"swot_w":           registrant.SwotW.String,
+		"swot_o":           registrant.SwotO.String,
+		"swot_t":           registrant.SwotT.String,
+		"organization_exp": registrant.OrganizationExp.String,
+		"commitment":       registrant.Commitment.String,
+		"cv_url":           registrant.CvUrl.String,
+		"twibbon_url":      registrant.TwibbonUrl.String,
+		"portofolio_url":   registrant.PortofolioUrl.String,
+		"status":           registrant.Status,
+		"updated_at":       registrant.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+
+	jsonBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("⚠️ [GoogleSheet] Gagal serialisasi data pendaftar: %v\n", err)
+		return
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Post(webhookURL, "application/json", bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		log.Printf("❌ [GoogleSheet] Gagal kirim data ke Google Sheets Webhook: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		log.Printf("✅ [GoogleSheet] Berhasil sinkronisasi pendaftar %s (%s) ke Google Sheets\n", registrant.Name, registrant.Email)
+	} else {
+		log.Printf("⚠️ [GoogleSheet] Response tidak normal dari Google Sheets (HTTP Status: %d)\n", resp.StatusCode)
 	}
 }

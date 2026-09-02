@@ -241,6 +241,31 @@
         "responses": { "200": { "description": "Berkas sukses diupload, mengembalikan cv_url, twibbon_url, dan/atau portofolio_url" } }
       }
     },
+    "/registrants/export": {
+      "get": {
+        "tags": ["Registrants (Admin)"],
+        "summary": "Export Data Pendaftar (.xlsx)",
+        "description": "Mengunduh seluruh data pendaftar dalam format file spreadsheet Excel (.xlsx). Mendukung filter opsional berdasarkan status dan divisi.",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Filter pencarian nama/email/nim/prodi/fakultas" },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["ALL", "PENDING", "LOLOS_BERKAS", "DITERIMA", "DITOLAK"], "default": "ALL" } },
+          { "name": "division", "in": "query", "schema": { "type": "string" }, "description": "Filter divisi (contoh: CM, EKRAF, HUMAS, dll)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "File Excel (.xlsx) berhasil di-generate dan diunduh",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/registrants": {
       "get": {
         "tags": ["Registrants (Admin)"],

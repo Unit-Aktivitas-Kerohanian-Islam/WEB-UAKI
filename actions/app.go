@@ -140,6 +140,7 @@ func App() *buffalo.App {
 		app.PUT("/registrants/me", auth(registrants.UpdateMe))
 		
 		// Admin Only (Validasi via Middleware)
+		app.GET("/registrants/export", auth(adminAuth(registrants.Export)))
 		app.PATCH("/registrants/{registrant_id}/status", auth(adminAuth(registrants.UpdateStatus)))
 		app.POST("/registrants/send-schedule", auth(adminAuth(registrants.SendSchedule)))
 
