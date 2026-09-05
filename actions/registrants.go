@@ -442,7 +442,7 @@ func (v RegistrantsResource) UploadFile(c buffalo.Context) error {
 		return Response(c, http.StatusForbidden, "Hanya Pendaftar yang diizinkan mengunggah berkas", nil)
 	}
 
-	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 10<<20)
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 30<<20)
 
 	result := make(map[string]string)
 
@@ -655,6 +655,43 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "Invalid JSON data", err.Error())
 	}
 
+	// 1. Validasi Berkas CV (Wajib untuk SEMUA Departemen)
+	finalCv := ""
+	if input.CvUrl.Valid && strings.TrimSpace(input.CvUrl.String) != "" {
+		finalCv = strings.TrimSpace(input.CvUrl.String)
+	} else if registrant.CvUrl.Valid && strings.TrimSpace(registrant.CvUrl.String) != "" {
+		finalCv = strings.TrimSpace(registrant.CvUrl.String)
+	}
+	if finalCv == "" {
+		return Response(c, http.StatusBadRequest, "Berkas CV (Curriculum Vitae) wajib diunggah untuk seluruh pendaftar", nil)
+	}
+
+	// 2. Validasi Bukti Twibbon (Wajib untuk SEMUA Departemen)
+	finalTwibbon := ""
+	if input.TwibbonUrl.Valid && strings.TrimSpace(input.TwibbonUrl.String) != "" {
+		finalTwibbon = strings.TrimSpace(input.TwibbonUrl.String)
+	} else if registrant.TwibbonUrl.Valid && strings.TrimSpace(registrant.TwibbonUrl.String) != "" {
+		finalTwibbon = strings.TrimSpace(registrant.TwibbonUrl.String)
+	}
+	if finalTwibbon == "" {
+		return Response(c, http.StatusBadRequest, "Bukti unggah Twibbon wajib diunggah untuk seluruh pendaftar", nil)
+	}
+
+	// 3. Validasi Portofolio (Wajib HANYA jika memilih divisi Creative Media / CM di Divisi 1 atau 2)
+	isDiv1CM := input.Division1.Valid && strings.ToUpper(strings.TrimSpace(input.Division1.String)) == "CM"
+	isDiv2CM := input.Division2.Valid && strings.ToUpper(strings.TrimSpace(input.Division2.String)) == "CM"
+	finalPorto := ""
+	if input.PortofolioUrl.Valid && strings.TrimSpace(input.PortofolioUrl.String) != "" {
+		finalPorto = strings.TrimSpace(input.PortofolioUrl.String)
+	} else if registrant.PortofolioUrl.Valid && strings.TrimSpace(registrant.PortofolioUrl.String) != "" {
+		finalPorto = strings.TrimSpace(registrant.PortofolioUrl.String)
+	}
+
+	if (isDiv1CM || isDiv2CM) && finalPorto == "" {
+		return Response(c, http.StatusBadRequest, "Berkas Portofolio karya (PDF) wajib diunggah untuk pendaftar yang memilih Departemen Creative Media (CM)", nil)
+	}
+
+	// Kelola pembaruan dan penghapusan file lama pada storage
 	if input.CvUrl.Valid && input.CvUrl.String != "" && input.CvUrl.String != registrant.CvUrl.String {
 		if registrant.CvUrl.Valid && registrant.CvUrl.String != "" {
 			key := v.storageService.ExtractObjectKey(registrant.CvUrl.String)
@@ -671,24 +708,13 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		registrant.TwibbonUrl = input.TwibbonUrl
 	}
 
-	// Validasi portofolio wajib jika memilih divisi Creative Media (CM)
-	isDiv1CM := input.Division1.Valid && strings.ToUpper(strings.TrimSpace(input.Division1.String)) == "CM"
-	isDiv2CM := input.Division2.Valid && strings.ToUpper(strings.TrimSpace(input.Division2.String)) == "CM"
-	if isDiv1CM || isDiv2CM {
-		hasInputPorto := input.PortofolioUrl.Valid && strings.TrimSpace(input.PortofolioUrl.String) != ""
-		hasExistingPorto := registrant.PortofolioUrl.Valid && strings.TrimSpace(registrant.PortofolioUrl.String) != ""
-		if !hasInputPorto && !hasExistingPorto {
-			return Response(c, http.StatusBadRequest, "Portofolio wajib diunggah untuk pendaftar yang memilih Departemen Creative Media (CM)", nil)
-		}
-	}
-
 	if input.PortofolioUrl.Valid && input.PortofolioUrl.String != "" && input.PortofolioUrl.String != registrant.PortofolioUrl.String {
 		if registrant.PortofolioUrl.Valid && registrant.PortofolioUrl.String != "" {
 			key := v.storageService.ExtractObjectKey(registrant.PortofolioUrl.String)
 			v.storageService.Delete(c.Request().Context(), key)
 		}
 		registrant.PortofolioUrl = input.PortofolioUrl
-	} else if input.PortofolioUrl.Valid && input.PortofolioUrl.String == "" && registrant.PortofolioUrl.Valid && registrant.PortofolioUrl.String != "" {
+	} else if !isDiv1CM && !isDiv2CM && input.PortofolioUrl.Valid && input.PortofolioUrl.String == "" && registrant.PortofolioUrl.Valid && registrant.PortofolioUrl.String != "" {
 		key := v.storageService.ExtractObjectKey(registrant.PortofolioUrl.String)
 		v.storageService.Delete(c.Request().Context(), key)
 		registrant.PortofolioUrl = nulls.NewString("")
