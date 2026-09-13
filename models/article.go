@@ -9,7 +9,6 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-// Article is used by pop to map your articles database table to your go code.
 type Article struct {
 	ID       uuid.UUID `json:"id" db:"id"`
 	AdminID  uuid.UUID `json:"admin_id" db:"admin_id"`
@@ -24,35 +23,26 @@ type Article struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// String is not required by pop and may be deleted
 func (a Article) String() string {
 	ja, _ := json.Marshal(a)
 	return string(ja)
 }
 
-// Articles is not required by pop and may be deleted
 type Articles []Article
 
-// String is not required by pop and may be deleted
 func (a Articles) String() string {
 	ja, _ := json.Marshal(a)
 	return string(ja)
 }
 
-// Validate gets run every time you call a "pop.Validate*" (pop.ValidateAndSave, pop.ValidateAndCreate, pop.ValidateAndUpdate) method.
-// This method is not required and may be deleted.
 func (a *Article) Validate(tx *pop.Connection) (*validate.Errors, error) {
 	return validate.NewErrors(), nil
 }
 
-// ValidateCreate gets run every time you call "pop.ValidateAndCreate" method.
-// This method is not required and may be deleted.
 func (a *Article) ValidateCreate(tx *pop.Connection) (*validate.Errors, error) {
 	return validate.NewErrors(), nil
 }
 
-// ValidateUpdate gets run every time you call "pop.ValidateAndUpdate" method.
-// This method is not required and may be deleted.
 func (a *Article) ValidateUpdate(tx *pop.Connection) (*validate.Errors, error) {
 	return validate.NewErrors(), nil
 }

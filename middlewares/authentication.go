@@ -36,7 +36,6 @@ func AuthMiddleware(jwtService jwt.Interface) buffalo.MiddlewareFunc {
 				}))
 			}
 
-			// Simpan user_id dan role ke context
 			c.Set("user_id", userID.String())
 			c.Set("role", role)
 

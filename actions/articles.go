@@ -149,7 +149,6 @@ func (v ArticlesResource) Create(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "Invalid article data", nil)
 	}
 
-	// PERBAIKAN: Ubah admin_id menjadi user_id
 	userIDStr, ok := c.Value("user_id").(string)
 	if ok && userIDStr != "" {
 		adminID, _ := uuid.FromString(userIDStr)
@@ -161,7 +160,6 @@ func (v ArticlesResource) Create(c buffalo.Context) error {
 		return Response(c, http.StatusInternalServerError, "Database connection not found", nil)
 	}
 
-	// Generate SEO-friendly unique slug
 	if article.Slug != "" {
 		article.Slug = GenerateUniqueSlug(tx, article.Slug, uuid.Nil)
 	} else {
@@ -216,7 +214,6 @@ func (v ArticlesResource) Update(c buffalo.Context) error {
 		}
 	}
 
-	// Update slug if explicitly provided or if title changed
 	if input.Slug != "" && input.Slug != article.Slug {
 		article.Slug = GenerateUniqueSlug(tx, input.Slug, article.ID)
 	} else if input.Title != "" && input.Title != article.Title && input.Slug == "" {
@@ -283,7 +280,6 @@ func (v ArticlesResource) UploadImage(c buffalo.Context) error {
 	}
 	defer file.Close()
 
-	// 2. Generate UUID menggunakan library gofrs
 	uid, _ := uuid.NewV4()
 	url, err := v.storageService.Upload(c.Request().Context(), "articles/"+uid.String()+"-"+file.Filename, file)
 	if err != nil {

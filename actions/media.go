@@ -86,7 +86,6 @@ func (v MediaResource) Create(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "invalid request body", err.Error())
 	}
 
-	// PERBAIKAN: Ubah admin_id menjadi user_id
 	userIDStr, ok := c.Value("user_id").(string)
 	if ok && userIDStr != "" {
 		adminID, _ := uuid.FromString(userIDStr)
@@ -183,7 +182,6 @@ func (v MediaResource) UploadImage(c buffalo.Context) error {
 	}
 	defer file.Close()
 
-	// 2. Generate UUID menggunakan library gofrs
 	uid, _ := uuid.NewV4()
 	url, err := v.storageService.Upload(c.Request().Context(), "media/"+uid.String()+"-"+file.Filename, file)
 	if err != nil {

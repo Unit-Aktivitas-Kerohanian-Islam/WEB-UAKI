@@ -22,7 +22,7 @@ type jsonWebToken struct {
 
 type Claims struct {
 	UserID uuid.UUID `json:"user_id"`
-	Role   string    `json:"role"` // "admin" atau "registrant"
+	Role   string    `json:"role"`
 	jwt.RegisteredClaims
 }
 

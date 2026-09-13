@@ -7,7 +7,6 @@ import (
 	"github.com/gobuffalo/buffalo/render"
 )
 
-// AdminMiddleware memastikan hanya role "admin" yang bisa menembus endpoint ini
 func AdminMiddleware(next buffalo.Handler) buffalo.Handler {
 	return func(c buffalo.Context) error {
 		role, ok := c.Value("role").(string)

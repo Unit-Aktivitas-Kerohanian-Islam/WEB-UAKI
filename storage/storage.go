@@ -15,10 +15,8 @@ type StorageService struct {
 }
 
 func NewStorageService() *StorageService {
-	// Folder penyimpanan lokal di dalam VM
 	baseDir := "./public/uploads"
 	
-	// Otomatis membuat folder jika belum ada
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		fmt.Printf("⚠️ Gagal membuat folder uploads: %v\n", err)
 	}
@@ -37,11 +35,9 @@ func (s *StorageService) ExtractObjectKey(urlStr string) string {
 	return ""
 }
 
-// Upload file secara streaming langsung ke Hardisk/SSD VM
 func (s *StorageService) Upload(ctx context.Context, key string, reader io.Reader) (string, error) {
 	fullPath := filepath.Join(s.BaseDir, key)
 	
-	// Pastikan sub-folder (seperti cv/, articles/) sudah ada
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return "", fmt.Errorf("failed to create directory: %v", err)
 	}
@@ -52,7 +48,6 @@ func (s *StorageService) Upload(ctx context.Context, key string, reader io.Reade
 	}
 	defer outFile.Close()
 
-	// io.Copy memindahkan data sedikit demi sedikit, RAM server 2GB dijamin aman
 	if _, err := io.Copy(outFile, reader); err != nil {
 		return "", fmt.Errorf("failed to save file: %v", err)
 	}
@@ -60,7 +55,6 @@ func (s *StorageService) Upload(ctx context.Context, key string, reader io.Reade
 	return fmt.Sprintf("%s/%s", s.BaseURL, key), nil
 }
 
-// Delete file fisik dari VM
 func (s *StorageService) Delete(ctx context.Context, key string) error {
 	fullPath := filepath.Join(s.BaseDir, key)
 	err := os.Remove(fullPath)

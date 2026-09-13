@@ -44,11 +44,9 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	registrants := &models.Registrants{}
 	q := PaginateFromContext(tx, c)
 
-	// Hanya tampilkan data pendaftar yang sudah submit form pendaftaran (memiliki pilihan divisi)
 	baseCondition := "division_1 IS NOT NULL"
 	q = q.Where(baseCondition)
 
-	// Filter pencarian teks
 	search := strings.TrimSpace(c.Param("search"))
 	if search == "" {
 		search = strings.TrimSpace(c.Param("q"))
@@ -58,13 +56,11 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 		q = q.Where("(LOWER(COALESCE(name, '')) LIKE LOWER(?) OR LOWER(COALESCE(email, '')) LIKE LOWER(?) OR LOWER(COALESCE(nim, '')) LIKE LOWER(?) OR LOWER(COALESCE(prodi, '')) LIKE LOWER(?) OR LOWER(COALESCE(fakultas, '')) LIKE LOWER(?))", searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
 	}
 
-	// Dukung filter status jika diberikan via query parameter
 	status := strings.TrimSpace(c.Param("status"))
 	if status != "" && strings.ToUpper(status) != "ALL" {
 		q = q.Where("status = ?", strings.ToUpper(status))
 	}
 
-	// Dukung filter divisi jika diberikan via query parameter
 	division := strings.TrimSpace(c.Param("division"))
 	if division != "" && strings.ToUpper(division) != "ALL" {
 		q = q.Where("(division_1 = ? OR division_2 = ?)", division, division)
@@ -103,6 +99,44 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 	})
 }
 
+// DivisionStat represents the number of registrants interested in a division
+// (counted from both the first and second division choice).
+type DivisionStat struct {
+	Division string `db:"division" json:"division"`
+	Count    int    `db:"count" json:"count"`
+}
+
+// DivisionStats returns the number of registrants per department/division,
+// computed entirely on the backend so the frontend only needs to display it.
+func (v RegistrantsResource) DivisionStats(c buffalo.Context) error {
+	tx, ok := c.Value("tx").(*pop.Connection)
+	if !ok {
+		return Response(c, http.StatusInternalServerError, "Database error", nil)
+	}
+
+	stats := []DivisionStat{}
+	query := `
+		SELECT division::text AS division, COUNT(*) AS count
+		FROM (
+			SELECT division_1 AS division FROM registrants WHERE division_1 IS NOT NULL
+			UNION ALL
+			SELECT division_2 AS division FROM registrants WHERE division_2 IS NOT NULL
+		) picks
+		GROUP BY division
+		ORDER BY count DESC, division ASC
+	`
+	if err := tx.RawQuery(query).All(&stats); err != nil {
+		return Response(c, http.StatusInternalServerError, "Gagal mengambil statistik pendaftar per departemen", err.Error())
+	}
+
+	totalSubmitted, _ := tx.Where("division_1 IS NOT NULL").Count(&models.Registrant{})
+
+	return Response(c, http.StatusOK, "Success", map[string]interface{}{
+		"data":              stats,
+		"total_registrants": totalSubmitted,
+	})
+}
+
 func (v RegistrantsResource) Export(c buffalo.Context) error {
 	tx, ok := c.Value("tx").(*pop.Connection)
 	if !ok {
@@ -112,11 +146,9 @@ func (v RegistrantsResource) Export(c buffalo.Context) error {
 	registrants := &models.Registrants{}
 	q := tx.Q()
 
-	// Hanya tampilkan data pendaftar yang sudah submit form pendaftaran (memiliki pilihan divisi)
 	baseCondition := "division_1 IS NOT NULL"
 	q = q.Where(baseCondition)
 
-	// Filter pencarian teks jika diberikan
 	search := strings.TrimSpace(c.Param("search"))
 	if search == "" {
 		search = strings.TrimSpace(c.Param("q"))
@@ -126,13 +158,11 @@ func (v RegistrantsResource) Export(c buffalo.Context) error {
 		q = q.Where("(LOWER(COALESCE(name, '')) LIKE LOWER(?) OR LOWER(COALESCE(email, '')) LIKE LOWER(?) OR LOWER(COALESCE(nim, '')) LIKE LOWER(?) OR LOWER(COALESCE(prodi, '')) LIKE LOWER(?) OR LOWER(COALESCE(fakultas, '')) LIKE LOWER(?))", searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
 	}
 
-	// Dukung filter status jika diberikan via query parameter
 	status := strings.TrimSpace(c.Param("status"))
 	if status != "" && strings.ToUpper(status) != "ALL" {
 		q = q.Where("status = ?", strings.ToUpper(status))
 	}
 
-	// Dukung filter divisi jika diberikan via query parameter
 	division := strings.TrimSpace(c.Param("division"))
 	if division != "" && strings.ToUpper(division) != "ALL" {
 		q = q.Where("(division_1 = ? OR division_2 = ?)", division, division)
@@ -183,13 +213,11 @@ func (v RegistrantsResource) Export(c buffalo.Context) error {
 		"Waktu Pendaftaran",
 	}
 
-	// Set Header Row
 	for colIdx, h := range headers {
 		cellName, _ := excelize.CoordinatesToCellName(colIdx+1, 1)
 		f.SetCellValue(sheetName, cellName, h)
 	}
 
-	// Style Header
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
 			Bold:   true,
@@ -220,7 +248,6 @@ func (v RegistrantsResource) Export(c buffalo.Context) error {
 	}
 	f.SetRowHeight(sheetName, 1, 30)
 
-	// Style Data Cells
 	dataStyle, _ := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
 			Size:   10,
@@ -305,7 +332,6 @@ func (v RegistrantsResource) Export(c buffalo.Context) error {
 			cellName, _ := excelize.CoordinatesToCellName(colIdx+1, rowNum)
 			f.SetCellValue(sheetName, cellName, val)
 
-			// Formatting center untuk kolom tertentu
 			if colIdx == 0 || colIdx == 4 || colIdx == 5 || colIdx == 11 || colIdx == 13 || colIdx == 14 || colIdx == 24 {
 				f.SetCellStyle(sheetName, cellName, cellName, centerStyle)
 			} else {
@@ -315,7 +341,6 @@ func (v RegistrantsResource) Export(c buffalo.Context) error {
 		f.SetRowHeight(sheetName, rowNum, 24)
 	}
 
-	// Lebar Kolom
 	f.SetColWidth(sheetName, "A", "A", 6)
 	f.SetColWidth(sheetName, "B", "B", 26)
 	f.SetColWidth(sheetName, "C", "C", 16)
@@ -451,11 +476,13 @@ func (v RegistrantsResource) UploadFile(c buffalo.Context) error {
 		defer cvFile.Close()
 		ext := strings.ToLower(filepath.Ext(cvFile.Filename))
 		if ext != ".pdf" {
-			return Response(c, http.StatusBadRequest, "CV harus berupa file PDF (.pdf)", nil)
+			log.Printf("⚠️ [UploadFile] CV ditolak: filename=%q ext=%q contentType=%q", cvFile.Filename, ext, cvFile.Header.Get("Content-Type"))
+			return Response(c, http.StatusBadRequest, fmt.Sprintf("CV harus berupa file PDF (.pdf). Berkas '%s' tidak dikenali sebagai PDF.", cvFile.Filename), nil)
 		}
 		safeFilename := strings.ReplaceAll(cvFile.Filename, " ", "_")
 		cvURL, err := v.storageService.Upload(c.Request().Context(), "cv/"+uuid.New().String()+"-"+safeFilename, cvFile)
 		if err != nil {
+			log.Printf("⚠️ [UploadFile] Gagal menyimpan CV %q: %v", cvFile.Filename, err)
 			return Response(c, http.StatusInternalServerError, "Gagal menyimpan CV", err.Error())
 		}
 		result["cv_url"] = cvURL
@@ -466,11 +493,13 @@ func (v RegistrantsResource) UploadFile(c buffalo.Context) error {
 		defer twibbonFile.Close()
 		ext := strings.ToLower(filepath.Ext(twibbonFile.Filename))
 		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
-			return Response(c, http.StatusBadRequest, "Twibbon harus berupa file gambar (.jpg, .jpeg, .png, .webp)", nil)
+			log.Printf("⚠️ [UploadFile] Twibbon ditolak: filename=%q ext=%q contentType=%q", twibbonFile.Filename, ext, twibbonFile.Header.Get("Content-Type"))
+			return Response(c, http.StatusBadRequest, fmt.Sprintf("Twibbon harus berupa file gambar (.jpg, .jpeg, .png, .webp). Berkas '%s' tidak dikenali sebagai format tersebut (format HEIC/HEIF dari iPhone tidak didukung, ubah dulu ke JPG/PNG).", twibbonFile.Filename), nil)
 		}
 		safeFilename := strings.ReplaceAll(twibbonFile.Filename, " ", "_")
 		twibbonURL, err := v.storageService.Upload(c.Request().Context(), "twibbon/"+uuid.New().String()+"-"+safeFilename, twibbonFile)
 		if err != nil {
+			log.Printf("⚠️ [UploadFile] Gagal menyimpan Twibbon %q: %v", twibbonFile.Filename, err)
 			return Response(c, http.StatusInternalServerError, "Gagal menyimpan Twibbon", err.Error())
 		}
 		result["twibbon_url"] = twibbonURL
@@ -481,11 +510,13 @@ func (v RegistrantsResource) UploadFile(c buffalo.Context) error {
 		defer portofolioFile.Close()
 		ext := strings.ToLower(filepath.Ext(portofolioFile.Filename))
 		if ext != ".pdf" {
-			return Response(c, http.StatusBadRequest, "Portofolio harus berupa file PDF (.pdf)", nil)
+			log.Printf("⚠️ [UploadFile] Portofolio ditolak: filename=%q ext=%q contentType=%q", portofolioFile.Filename, ext, portofolioFile.Header.Get("Content-Type"))
+			return Response(c, http.StatusBadRequest, fmt.Sprintf("Portofolio harus berupa file PDF (.pdf). Berkas '%s' tidak dikenali sebagai PDF.", portofolioFile.Filename), nil)
 		}
 		safeFilename := strings.ReplaceAll(portofolioFile.Filename, " ", "_")
 		portofolioURL, err := v.storageService.Upload(c.Request().Context(), "portofolio/"+uuid.New().String()+"-"+safeFilename, portofolioFile)
 		if err != nil {
+			log.Printf("⚠️ [UploadFile] Gagal menyimpan Portofolio %q: %v", portofolioFile.Filename, err)
 			return Response(c, http.StatusInternalServerError, "Gagal menyimpan Portofolio", err.Error())
 		}
 		result["portofolio_url"] = portofolioURL
@@ -555,7 +586,6 @@ func (v RegistrantsResource) GoogleLogin(c buffalo.Context) error {
 	}
 	defer resp.Body.Close()
 
-	// PERBAIKAN: Menambahkan kolom Aud untuk menangkap nilai Client ID dari token
 	var googleData struct {
 		Email string `json:"email"`
 		Name  string `json:"name"`
@@ -655,7 +685,6 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "Invalid JSON data", err.Error())
 	}
 
-	// 1. Validasi Berkas CV (Wajib untuk SEMUA Departemen)
 	finalCv := ""
 	if input.CvUrl.Valid && strings.TrimSpace(input.CvUrl.String) != "" {
 		finalCv = strings.TrimSpace(input.CvUrl.String)
@@ -666,7 +695,6 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "Berkas CV (Curriculum Vitae) wajib diunggah untuk seluruh pendaftar", nil)
 	}
 
-	// 2. Validasi Bukti Twibbon (Wajib untuk SEMUA Departemen)
 	finalTwibbon := ""
 	if input.TwibbonUrl.Valid && strings.TrimSpace(input.TwibbonUrl.String) != "" {
 		finalTwibbon = strings.TrimSpace(input.TwibbonUrl.String)
@@ -677,7 +705,6 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "Bukti unggah Twibbon wajib diunggah untuk seluruh pendaftar", nil)
 	}
 
-	// 3. Validasi Portofolio (Wajib HANYA jika memilih divisi Creative Media / CM di Divisi 1 atau 2)
 	isDiv1CM := input.Division1.Valid && strings.ToUpper(strings.TrimSpace(input.Division1.String)) == "CM"
 	isDiv2CM := input.Division2.Valid && strings.ToUpper(strings.TrimSpace(input.Division2.String)) == "CM"
 	finalPorto := ""
@@ -691,7 +718,6 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		return Response(c, http.StatusBadRequest, "Berkas Portofolio karya (PDF) wajib diunggah untuk pendaftar yang memilih Departemen Creative Media (CM)", nil)
 	}
 
-	// Kelola pembaruan dan penghapusan file lama pada storage
 	if input.CvUrl.Valid && input.CvUrl.String != "" && input.CvUrl.String != registrant.CvUrl.String {
 		if registrant.CvUrl.Valid && registrant.CvUrl.String != "" {
 			key := v.storageService.ExtractObjectKey(registrant.CvUrl.String)
@@ -748,7 +774,6 @@ func (v RegistrantsResource) UpdateMe(c buffalo.Context) error {
 		return Response(c, http.StatusUnprocessableEntity, "Validation error", verrs)
 	}
 
-	// Sinkronisasi otomatis ke Google Sheet jika webhook URL dikonfigurasi dan formulir sudah diisi
 	if registrant.Division1.Valid && strings.TrimSpace(registrant.Division1.String) != "" {
 		go syncToGoogleSheet(*registrant)
 	}
@@ -1029,14 +1054,12 @@ Panitia Open Recruitment Staff Muda UAKI UB 2026`, user.Name, dateStr, location,
 	msg.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n", boundary))
 	msg.WriteString("\r\n")
 
-	// Plain text section
 	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	msg.WriteString("Content-Type: text/plain; charset=\"UTF-8\"\r\n")
 	msg.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
 	msg.WriteString(textBody)
 	msg.WriteString("\r\n\r\n")
 
-	// HTML section
 	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	msg.WriteString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
 	msg.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
@@ -1102,7 +1125,6 @@ func sendScheduleEmailsAsync(targets []models.Registrant, dateStr, location, lin
 	smtpPort := strings.TrimSpace(os.Getenv("SMTP_PORT"))
 	senderName := strings.TrimSpace(os.Getenv("SMTP_SENDER_NAME"))
 
-	// Sanitize Google App Password if it contains spaces (e.g. "upmx fipw bibs wzki" -> "upmxfipwbibswzki")
 	if smtpHost == "smtp.gmail.com" || strings.HasSuffix(strings.ToLower(senderEmail), "@gmail.com") {
 		senderPassword = strings.ReplaceAll(senderPassword, " ", "")
 	}

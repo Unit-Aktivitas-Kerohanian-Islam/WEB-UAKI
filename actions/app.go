@@ -97,7 +97,6 @@ func App() *buffalo.App {
 			return err
 		})
 
-		// ================== ADMIN ROUTES ==================
 		admins := AdminsResource{}
 		app.POST("/admins/login", admins.Login)
 		adminRoute := app.Resource("/admins", admins)
@@ -106,7 +105,6 @@ func App() *buffalo.App {
 		adminRoute.Middleware.Skip(adminAuth, admins.Login)
 		adminRoute.Middleware.Skip(superAdminAuth, admins.Login)
 
-		// ================== ARTICLE ROUTES ==================
 		articles := NewArticleResource()
 		app.POST("/articles/image", auth(adminAuth(articles.UploadImage)))
 		articleRoute := app.Resource("/articles", articles)
@@ -114,7 +112,6 @@ func App() *buffalo.App {
 		articleRoute.Middleware.Skip(auth, articles.List, articles.Show)
 		articleRoute.Middleware.Skip(adminAuth, articles.List, articles.Show)
 
-		// ================== MEDIA ROUTES ==================
 		media := NewMediaResource()
 		app.POST("/media/image", auth(adminAuth(media.UploadImage)))
 		mediaRoute := app.Resource("/media", media)
@@ -129,23 +126,20 @@ func App() *buffalo.App {
 		mediaCategoriesRoute.Middleware.Skip(adminAuth, mediaCategories.List)
 		mediaCategoriesRoute.Middleware.Skip(superAdminAuth, mediaCategories.List)
 		
-		// ================== REGISTRANT ROUTES ==================
 		registrants := NewRegistrantsResource()
 		app.POST("/registrants/login", registrants.Login)
 		app.POST("/registrants/auth/google", registrants.GoogleLogin)
 		
-		// Pendaftar Only (Validasi di dalam handler)
 		app.POST("/registrants/file", auth(registrants.UploadFile))
 		app.GET("/registrants/me", auth(registrants.GetMe))
 		app.PUT("/registrants/me", auth(registrants.UpdateMe))
 		
-		// Admin Only (Validasi via Middleware)
 		app.GET("/registrants/export", auth(adminAuth(registrants.Export)))
+		app.GET("/registrants/division-stats", auth(adminAuth(registrants.DivisionStats)))
 		app.POST("/registrants/sync-sheet", auth(adminAuth(registrants.SyncAllToSheet)))
 		app.PATCH("/registrants/{registrant_id}/status", auth(adminAuth(registrants.UpdateStatus)))
 		app.POST("/registrants/send-schedule", auth(adminAuth(registrants.SendSchedule)))
 
-		// List, Show, Destroy Registrant dijaga oleh adminAuth
 		registrantsRoute := app.Resource("/registrants", registrants)
 		registrantsRoute.Middleware.Use(auth, adminAuth)
 		
@@ -155,7 +149,6 @@ func App() *buffalo.App {
 	return app
 }
 
-// ... (sisa fungsi translations dan forceSSL biarkan tetap sama)
 func translations() buffalo.MiddlewareFunc {
 	var err error
 	if T, err = i18n.New(locales.FS(), "en-US"); err != nil {

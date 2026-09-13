@@ -16,7 +16,6 @@ var _ = grift.Namespace("db", func() {
 
 	grift.Desc("seed", "Seeds a database with initial data")
 	grift.Add("seed", func(c *grift.Context) error {
-		// Cek apakah tabel admin sudah ada isinya agar tidak terjadi duplikasi
 		count, err := models.DB.Count("admins")
 		if err != nil {
 			return err

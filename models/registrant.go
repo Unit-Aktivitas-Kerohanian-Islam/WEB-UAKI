@@ -39,7 +39,6 @@ type Registrant struct {
 	PortofolioUrl   nulls.String `json:"portofolio_url" db:"portofolio_url"`
 	Status          string       `json:"status" db:"status"` 
 	
-	// Jadwal Screening
 	ScreeningDate     nulls.Time   `json:"screening_date" db:"screening_date"`
 	ScreeningLocation nulls.String `json:"screening_location" db:"screening_location"`
 	ScreeningLink     nulls.String `json:"screening_link" db:"screening_link"`
