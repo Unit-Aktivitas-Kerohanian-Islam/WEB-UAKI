@@ -100,7 +100,7 @@ func (v RegistrantsResource) List(c buffalo.Context) error {
 }
 
 // DivisionStat represents the number of registrants interested in a division
-// (counted from both the first and second division choice).
+// (counted from the first division choice only).
 type DivisionStat struct {
 	Division string `db:"division" json:"division"`
 	Count    int    `db:"count" json:"count"`
@@ -116,13 +116,10 @@ func (v RegistrantsResource) DivisionStats(c buffalo.Context) error {
 
 	stats := []DivisionStat{}
 	query := `
-		SELECT division::text AS division, COUNT(*) AS count
-		FROM (
-			SELECT division_1 AS division FROM registrants WHERE division_1 IS NOT NULL
-			UNION ALL
-			SELECT division_2 AS division FROM registrants WHERE division_2 IS NOT NULL
-		) picks
-		GROUP BY division
+		SELECT division_1::text AS division, COUNT(*) AS count
+		FROM registrants
+		WHERE division_1 IS NOT NULL
+		GROUP BY division_1
 		ORDER BY count DESC, division ASC
 	`
 	if err := tx.RawQuery(query).All(&stats); err != nil {
